@@ -11,10 +11,19 @@
         display: flex; justify-content: space-between; align-items: center;
         margin-bottom: 20px; padding: 10px 20px;
         background: #3949ab; color: white; border-radius: 8px;
+        flex-wrap: wrap; gap: 10px;
     }
     .topo h1 { margin: 0; font-size: 22px; }
-    .topo a { color: white; text-decoration: none; font-weight: bold; }
-    .topo a:hover { text-decoration: underline; }
+    .topo .acoes { display: flex; gap: 10px; align-items: center; }
+    .topo a, .topo button {
+        color: white; text-decoration: none; font-weight: bold;
+        background: rgba(255,255,255,0.2);
+        padding: 6px 12px; border-radius: 5px;
+        border: none; cursor: pointer; font-size: 13px;
+    }
+    .topo a:hover, .topo button:hover {
+        background: rgba(255,255,255,0.35);
+    }
 
     .barra-acoes { display: flex; justify-content: center; gap: 10px; margin-bottom: 20px; }
     .barra-acoes button {
@@ -42,6 +51,21 @@
         content: "clique para escrever"; color: #bbb; font-size: 11px; font-style: italic;
     }
 
+    /* Células bloqueadas (não é dono e não é admin) */
+    td.bloqueada {
+        background-color: #e8e8e8 !important;
+        cursor: not-allowed !important;
+        color: #555;
+    }
+
+    /* Células que o admin pode editar */
+    td.admin-pode-editar {
+        background-color: #fffbe6 !important;
+    }
+    td.admin-pode-editar:hover {
+        background-color: #fff3c4 !important;
+    }
+
     tr.linha-aula:nth-child(odd) td { background: #fafafa; }
     tr.linha-aula:nth-child(even) td { background: #f0f0f0; }
     tr.linha-aula:nth-child(odd) td.coluna-aula { background: #e0e0e0; }
@@ -54,6 +78,7 @@
     }
     .status.online { background: #d4edda; color: #155724; }
     .status.offline { background: #f8d7da; color: #721c24; }
+    .status.admin { background: #fff3cd; color: #856404; }
 
     @media print {
         @page { size: A4 landscape; margin: 6mm; }
@@ -80,6 +105,7 @@
         tr.linha-separadora td { height: 2px; border: none; background: transparent !important; }
         td[contenteditable="true"]:empty::before { content: ""; }
         td[contenteditable="true"]:focus { outline: none; }
+        td.bloqueada, td.admin-pode-editar { background-color: inherit !important; }
     }
 </style>
 </head>
@@ -87,7 +113,11 @@
 
 <div class="topo">
     <h1>🌙 Turno Tarde</h1>
-    <a href="index.html">← Voltar</a>
+    <div class="acoes">
+        <button id="btnLogin" onclick="loginGoogle()" style="display:none">👑 Entrar como Admin</button>
+        <button id="btnLogout" onclick="logoutAdmin()" style="display:none">🚪 Sair do admin</button>
+        <a href="index.html">← Voltar</a>
+    </div>
 </div>
 
 <div class="status" id="status">⏳ Conectando...</div>
@@ -102,10 +132,10 @@
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.7.0/firebase-app.js";
 import { getFirestore, collection, doc, getDocs, setDoc, updateDoc, deleteDoc, onSnapshot }
     from "https://www.gstatic.com/firebasejs/10.7.0/firebase-firestore.js";
-import { getAuth, signInAnonymously, onAuthStateChanged }
+import { getAuth, signInAnonymously, onAuthStateChanged, GoogleAuthProvider, signInWithPopup, signOut }
     from "https://www.gstatic.com/firebasejs/10.7.0/firebase-auth.js";
 
-// ✅ SUAS CREDENCIAIS
+// ✅ CREDENCIAIS
 const firebaseConfig = {
   apiKey: "AIzaSyA2TkDJCfh4tp55bnxV3SUwClihYVmAd3U",
   authDomain: "tabelas-salas-4f49c.firebaseapp.com",
@@ -115,11 +145,13 @@ const firebaseConfig = {
   appId: "1:264753669194:web:51cc2a78e852647cf632b3"
 };
 
+// 👑 E-MAIL DO ADMIN
+const EMAIL_ADMIN = "informaticadonabranca@gmail.com";
+
 const app = initializeApp(firebaseConfig);
 const db = getFirestore(app);
 const auth = getAuth(app);
 
-// ====== CONFIGURAÇÃO DO TURNO ======
 const TURNO = 'tarde';
 const SALAS = [
     { id: 'sala-informatica', nome: 'Sala de Informática' },
@@ -131,6 +163,7 @@ const BLOCOS = 4;
 const AULAS = [1, 2, 3, 4, 5];
 
 let usuarioAtual = null;
+let isAdmin = false;
 
 function atualizarStatus(texto, tipo) {
     const el = document.getElementById('status');
@@ -189,24 +222,29 @@ function aplicarDados(dados) {
     document.querySelectorAll('td[data-id]').forEach(celula => {
         const id = celula.dataset.id;
         const dado = dados[id];
+
+        celula.classList.remove('bloqueada', 'admin-pode-editar');
+
         if (dado && dado.conteudo) {
             celula.textContent = dado.conteudo;
-            if (dado.dono && dado.dono !== usuarioAtual) {
-                celula.contentEditable = 'false';
-                celula.style.backgroundColor = '#e8e8e8';
-                celula.style.cursor = 'not-allowed';
-                celula.title = 'Preenchido por outro usuário';
-            } else {
+
+            const ehDono = dado.dono && dado.dono === usuarioAtual;
+
+            if (isAdmin) {
                 celula.contentEditable = 'true';
-                celula.style.backgroundColor = '';
-                celula.style.cursor = 'text';
-                celula.title = '';
+                celula.classList.add('admin-pode-editar');
+                celula.title = '👑 Você (admin) pode editar';
+            } else if (ehDono) {
+                celula.contentEditable = 'true';
+                celula.title = 'Você criou esta célula — pode editar';
+            } else {
+                celula.contentEditable = 'false';
+                celula.classList.add('bloqueada');
+                celula.title = 'Preenchido por outra pessoa — você não pode editar';
             }
         } else {
             celula.textContent = '';
             celula.contentEditable = 'true';
-            celula.style.backgroundColor = '';
-            celula.style.cursor = 'text';
             celula.title = '';
         }
     });
@@ -221,6 +259,7 @@ async function salvarCelula(celula) {
 
     try {
         const docRef = doc(db, "celulas", id);
+
         if (conteudo === '') {
             await deleteDoc(docRef);
         } else {
@@ -232,6 +271,7 @@ async function salvarCelula(celula) {
         }
     } catch (erro) {
         console.error("Erro ao salvar:", erro);
+        alert("Você não tem permissão para alterar esta célula.");
     }
 }
 
@@ -252,29 +292,61 @@ function ouvirMudancas() {
     });
 }
 
+window.loginGoogle = async function() {
+    const provider = new GoogleAuthProvider();
+    try {
+        await signInWithPopup(auth, provider);
+    } catch (e) {
+        alert("Erro ao fazer login: " + e.message);
+    }
+};
+
+window.logoutAdmin = async function() {
+    try {
+        await signOut(auth);
+        await signInAnonymously(auth);
+    } catch (e) {
+        alert("Erro ao sair: " + e.message);
+    }
+};
+
 async function iniciar() {
     atualizarStatus("🔐 Autenticando...", "offline");
+
     try { await signInAnonymously(auth); }
     catch (erro) { atualizarStatus("❌ Erro na autenticação", "offline"); return; }
 
     onAuthStateChanged(auth, async (user) => {
-        if (user) {
-            usuarioAtual = user.uid;
-            atualizarStatus("✅ Conectado — edições sincronizam em tempo real", "online");
-
-            gerarTabelas();
-
-            const snapshot = await getDocs(collection(db, "celulas"));
-            const dados = {};
-            snapshot.forEach(doc => { dados[doc.id] = doc.data(); });
-            aplicarDados(dados);
-            configurarEdicao();
-
-            ouvirMudancas();
-        } else {
+        if (!user) {
             usuarioAtual = null;
             atualizarStatus("❌ Não autenticado", "offline");
+            return;
         }
+
+        usuarioAtual = user.uid;
+        isAdmin = (user.email === EMAIL_ADMIN);
+
+        document.getElementById('btnLogin').style.display = isAdmin ? 'none' : 'inline-block';
+        document.getElementById('btnLogout').style.display = isAdmin ? 'inline-block' : 'none';
+
+        if (isAdmin) {
+            atualizarStatus("👑 ADMIN — você pode editar qualquer célula", "admin");
+        } else {
+            atualizarStatus("✅ Conectado — você pode adicionar em células vazias e editar as que criou", "online");
+        }
+
+        const container = document.getElementById('tabelas');
+        if (container.children.length === 0) {
+            gerarTabelas();
+            configurarEdicao();
+        }
+
+        const snapshot = await getDocs(collection(db, "celulas"));
+        const dados = {};
+        snapshot.forEach(doc => { dados[doc.id] = doc.data(); });
+        aplicarDados(dados);
+
+        ouvirMudancas();
     });
 }
 
