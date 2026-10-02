@@ -6,7 +6,6 @@
 <title>Turno Tarde</title>
 <style>
     body { font-family: Arial, sans-serif; margin: 20px; background: #f5f5f5; }
-
     .topo {
         display: flex; justify-content: space-between; align-items: center;
         margin-bottom: 20px; padding: 10px 20px;
@@ -21,10 +20,7 @@
         padding: 6px 12px; border-radius: 5px;
         border: none; cursor: pointer; font-size: 13px;
     }
-    .topo a:hover, .topo button:hover {
-        background: rgba(255,255,255,0.35);
-    }
-
+    .topo a:hover, .topo button:hover { background: rgba(255,255,255,0.35); }
     .barra-acoes { display: flex; justify-content: center; gap: 10px; margin-bottom: 20px; }
     .barra-acoes button {
         padding: 10px 20px; border: none; border-radius: 5px;
@@ -32,65 +28,44 @@
     }
     .btn-imprimir { background: #222; }
     .btn-imprimir:hover { background: #000; }
-
     .tabela-container {
         margin-bottom: 30px; background: white; padding: 20px;
         border-radius: 8px; box-shadow: 0 2px 5px rgba(0,0,0,0.1);
     }
     h2 { color: #000; margin-bottom: 15px; text-align: center; }
-
     table { width: 100%; border-collapse: collapse; margin-bottom: 20px; }
     th, td { border: 1px solid #999; padding: 8px; text-align: center; height: 35px; }
     th { background: #4a4a4a; color: white; font-weight: bold; }
     td.coluna-aula { background: #e0e0e0; font-weight: bold; color: #000; width: 120px; }
-
-    /* Cabeçalho: nome do dia + data */
     th.th-cabecalho-dia {
-        background: #4a4a4a;
-        color: white;
-        padding: 6px 4px;
-        vertical-align: middle;
+        background: #4a4a4a; color: white; padding: 6px 4px; vertical-align: middle;
     }
-    .nome-dia {
-        font-size: 13px;
-        font-weight: bold;
-        margin-bottom: 3px;
-    }
+    .nome-dia { font-size: 13px; font-weight: bold; margin-bottom: 3px; }
     .data-dia {
-        font-size: 11px;
-        font-weight: normal;
-        background: #6a6a6a;
-        border-radius: 3px;
-        padding: 2px 6px;
-        display: inline-block;
-        cursor: text;
-        transition: background 0.15s;
+        font-size: 11px; font-weight: normal; background: #6a6a6a;
+        border-radius: 3px; padding: 2px 6px; display: inline-block;
+        cursor: text; transition: background 0.15s;
     }
     .data-dia:hover { background: #808080; }
     .data-dia:focus { outline: 2px solid #ffb300; background: #505050; }
-
     td[contenteditable="true"] { cursor: text; background: #fff; }
     td[contenteditable="true"]:hover { background: #f0f0f0; }
     td[contenteditable="true"]:focus { outline: 2px solid #000; background: #f5f5f5; }
     td[contenteditable="true"]:empty::before {
         content: "clique para escrever"; color: #bbb; font-size: 11px; font-style: italic;
     }
-
     td.bloqueada {
         background-color: #e8e8e8 !important;
         cursor: not-allowed !important;
         color: #555;
     }
-
     td.admin-pode-editar { background-color: #fffbe6 !important; }
     td.admin-pode-editar:hover { background-color: #fff3c4 !important; }
-
     tr.linha-aula:nth-child(odd) td { background: #fafafa; }
     tr.linha-aula:nth-child(even) td { background: #f0f0f0; }
     tr.linha-aula:nth-child(odd) td.coluna-aula { background: #e0e0e0; }
     tr.linha-aula:nth-child(even) td.coluna-aula { background: #d5d5d5; }
     tr.linha-separadora td { height: 15px; border: none; background: transparent !important; }
-
     .status {
         text-align: center; margin-bottom: 15px; padding: 8px;
         border-radius: 5px; font-weight: bold;
@@ -98,7 +73,6 @@
     .status.online { background: #d4edda; color: #155724; }
     .status.offline { background: #f8d7da; color: #721c24; }
     .status.admin { background: #fff3cd; color: #856404; }
-
     @media print {
         @page { size: A4 landscape; margin: 6mm; }
         * { -webkit-print-color-adjust: exact !important; print-color-adjust: exact !important; }
@@ -157,7 +131,6 @@ import { getFirestore, collection, doc, getDocs, setDoc, updateDoc, deleteDoc, o
 import { getAuth, signInAnonymously, onAuthStateChanged, GoogleAuthProvider, signInWithPopup, signOut }
     from "https://www.gstatic.com/firebasejs/10.7.0/firebase-auth.js";
 
-// ✅ CREDENCIAIS
 const firebaseConfig = {
   apiKey: "AIzaSyA2TkDJCfh4tp55bnxV3SUwClihYVmAd3U",
   authDomain: "tabelas-salas-4f49c.firebaseapp.com",
@@ -167,24 +140,19 @@ const firebaseConfig = {
   appId: "1:264753669194:web:51cc2a78e852647cf632b3"
 };
 
-// 👑 E-MAIL DO ADMIN
 const EMAIL_ADMIN = "informaticadonabranca@gmail.com";
 
 const app = initializeApp(firebaseConfig);
 const db = getFirestore(app);
 const auth = getAuth(app);
 
-// ===== CONFIGURAÇÃO DO TURNO =====
 const TURNO = 'tarde';
-
 const SALAS = [
     { id: 'sala-informatica', nome: 'Sala de Informática - Tarde' },
     { id: 'multiuso',         nome: 'Multiuso - Tarde' },
     { id: 'itinerante',       nome: 'Itinerante - Tarde' }
 ];
-
 const DIAS = ['Segunda-Feira', 'Terça-feira', 'Quarta-feira', 'Quinta-feira', 'Sexta-feira'];
-// 📅 Datas iniciais (editáveis na tela depois)
 const DATAS = ['28/09', '29/09', '30/09', '01/10', '02/10'];
 const BLOCOS = 4;
 const AULAS = [1, 2, 3, 4, 5];
@@ -215,7 +183,6 @@ function gerarTabelas() {
         const tbody = document.createElement('tbody');
 
         for (let b = 0; b < BLOCOS; b++) {
-            // Cabeçalho: nome do dia + data
             const trCab = document.createElement('tr');
             let htmlCab = `<th>Aula</th>`;
             DIAS.forEach((dia, i) => {
@@ -229,7 +196,6 @@ function gerarTabelas() {
             trCab.innerHTML = htmlCab;
             tbody.appendChild(trCab);
 
-            // Linhas das aulas
             AULAS.forEach(n => {
                 const tr = document.createElement('tr');
                 tr.className = 'linha-aula';
@@ -242,7 +208,6 @@ function gerarTabelas() {
                 tbody.appendChild(tr);
             });
 
-            // Separador (menos no último bloco)
             if (b < BLOCOS - 1) {
                 const trSep = document.createElement('tr');
                 trSep.className = 'linha-separadora';
@@ -283,7 +248,7 @@ function aplicarDados(dados) {
             }
         } else {
             if (ehData) {
-                const match = id.match(/data_dia(\d+)/);
+                const match = id.match(/data_dia(\d+)$/);
                 if (match) {
                     const idx = parseInt(match[1]);
                     celula.textContent = '📅 ' + (DATAS[idx] || '');
@@ -301,6 +266,7 @@ async function salvarCelula(celula) {
     const id = celula.dataset.id;
     const conteudo = celula.textContent.trim();
     const dono = usuarioAtual;
+    const conteudoOriginal = celula.dataset.valorOriginal || '';
 
     if (!dono) return;
 
@@ -317,16 +283,21 @@ async function salvarCelula(celula) {
             }
         }
     } catch (erro) {
-        console.error("Erro ao salvar:", erro);
-        alert("Você não tem permissão para alterar esta célula.");
+        console.error("Erro ao salvar (sem permissão):", erro);
+        celula.textContent = conteudoOriginal;
     }
 }
 
 function configurarEdicao() {
     document.querySelectorAll('td[data-id], .data-dia[data-id]').forEach(celula => {
+        celula.addEventListener('focus', () => {
+            celula.dataset.valorOriginal = celula.textContent;
+        });
+
         celula.addEventListener('keydown', e => {
             if (e.key === 'Enter') { e.preventDefault(); celula.blur(); }
         });
+
         celula.addEventListener('blur', () => { salvarCelula(celula); });
     });
 }
