@@ -44,6 +44,31 @@
     th { background: #4a4a4a; color: white; font-weight: bold; }
     td.coluna-aula { background: #e0e0e0; font-weight: bold; color: #000; width: 120px; }
 
+    /* Cabeçalho: nome do dia + data */
+    th.th-cabecalho-dia {
+        background: #4a4a4a;
+        color: white;
+        padding: 6px 4px;
+        vertical-align: middle;
+    }
+    .nome-dia {
+        font-size: 13px;
+        font-weight: bold;
+        margin-bottom: 3px;
+    }
+    .data-dia {
+        font-size: 11px;
+        font-weight: normal;
+        background: #6a6a6a;
+        border-radius: 3px;
+        padding: 2px 6px;
+        display: inline-block;
+        cursor: text;
+        transition: background 0.15s;
+    }
+    .data-dia:hover { background: #808080; }
+    .data-dia:focus { outline: 2px solid #ffb300; background: #505050; }
+
     td[contenteditable="true"] { cursor: text; background: #fff; }
     td[contenteditable="true"]:hover { background: #f0f0f0; }
     td[contenteditable="true"]:focus { outline: 2px solid #000; background: #f5f5f5; }
@@ -51,20 +76,14 @@
         content: "clique para escrever"; color: #bbb; font-size: 11px; font-style: italic;
     }
 
-    /* Células bloqueadas (não é dono e não é admin) */
     td.bloqueada {
         background-color: #e8e8e8 !important;
         cursor: not-allowed !important;
         color: #555;
     }
 
-    /* Células que o admin pode editar */
-    td.admin-pode-editar {
-        background-color: #fffbe6 !important;
-    }
-    td.admin-pode-editar:hover {
-        background-color: #fff3c4 !important;
-    }
+    td.admin-pode-editar { background-color: #fffbe6 !important; }
+    td.admin-pode-editar:hover { background-color: #fff3c4 !important; }
 
     tr.linha-aula:nth-child(odd) td { background: #fafafa; }
     tr.linha-aula:nth-child(even) td { background: #f0f0f0; }
@@ -96,6 +115,9 @@
         table { margin-bottom: 0; font-size: 12px; flex: 1; }
         th, td { border: 1px solid #000; padding: 2px 8px; line-height: 1; }
         th { background: #4a4a4a !important; color: white !important; font-size: 12px; }
+        th.th-cabecalho-dia { padding: 3px 4px; }
+        .nome-dia { font-size: 11px; margin-bottom: 2px; }
+        .data-dia { font-size: 10px; background: #6a6a6a !important; padding: 1px 4px; }
         td.coluna-aula { color: #000 !important; font-size: 12px; width: 150px; }
         tr.linha-aula:nth-child(odd) td { background: #fafafa !important; }
         tr.linha-aula:nth-child(even) td { background: #ececec !important; }
@@ -152,13 +174,18 @@ const app = initializeApp(firebaseConfig);
 const db = getFirestore(app);
 const auth = getAuth(app);
 
+// ===== CONFIGURAÇÃO DO TURNO =====
 const TURNO = 'tarde';
+
 const SALAS = [
-    { id: 'sala-informatica', nome: 'Sala de Informática' },
-    { id: 'multiuso',         nome: 'Multiuso' },
-    { id: 'itinerante',       nome: 'Itinerante' }
+    { id: 'sala-informatica', nome: 'Sala de Informática - Tarde' },
+    { id: 'multiuso',         nome: 'Multiuso - Tarde' },
+    { id: 'itinerante',       nome: 'Itinerante - Tarde' }
 ];
+
 const DIAS = ['Segunda-Feira', 'Terça-feira', 'Quarta-feira', 'Quinta-feira', 'Sexta-feira'];
+// 📅 Datas iniciais (editáveis na tela depois)
+const DATAS = ['28/09', '29/09', '30/09', '01/10', '02/10'];
 const BLOCOS = 4;
 const AULAS = [1, 2, 3, 4, 5];
 
@@ -188,10 +215,21 @@ function gerarTabelas() {
         const tbody = document.createElement('tbody');
 
         for (let b = 0; b < BLOCOS; b++) {
+            // Cabeçalho: nome do dia + data
             const trCab = document.createElement('tr');
-            trCab.innerHTML = `<th>Aula</th>` + DIAS.map(d => `<th>${d}</th>`).join('');
+            let htmlCab = `<th>Aula</th>`;
+            DIAS.forEach((dia, i) => {
+                const dataId = `${TURNO}_${sala.id}_data_dia${i}`;
+                htmlCab += `
+                    <th class="th-cabecalho-dia">
+                        <div class="nome-dia">${dia}</div>
+                        <div class="data-dia" contenteditable="true" data-id="${dataId}" data-tipo="data">📅 ${DATAS[i]}</div>
+                    </th>`;
+            });
+            trCab.innerHTML = htmlCab;
             tbody.appendChild(trCab);
 
+            // Linhas das aulas
             AULAS.forEach(n => {
                 const tr = document.createElement('tr');
                 tr.className = 'linha-aula';
@@ -204,6 +242,7 @@ function gerarTabelas() {
                 tbody.appendChild(tr);
             });
 
+            // Separador (menos no último bloco)
             if (b < BLOCOS - 1) {
                 const trSep = document.createElement('tr');
                 trSep.className = 'linha-separadora';
@@ -219,31 +258,39 @@ function gerarTabelas() {
 }
 
 function aplicarDados(dados) {
-    document.querySelectorAll('td[data-id]').forEach(celula => {
+    document.querySelectorAll('td[data-id], .data-dia[data-id]').forEach(celula => {
         const id = celula.dataset.id;
         const dado = dados[id];
+        const ehData = celula.dataset.tipo === 'data';
 
         celula.classList.remove('bloqueada', 'admin-pode-editar');
 
         if (dado && dado.conteudo) {
             celula.textContent = dado.conteudo;
-
             const ehDono = dado.dono && dado.dono === usuarioAtual;
 
             if (isAdmin) {
                 celula.contentEditable = 'true';
-                celula.classList.add('admin-pode-editar');
+                if (!ehData) celula.classList.add('admin-pode-editar');
                 celula.title = '👑 Você (admin) pode editar';
             } else if (ehDono) {
                 celula.contentEditable = 'true';
-                celula.title = 'Você criou esta célula — pode editar';
+                celula.title = 'Você criou — pode editar';
             } else {
                 celula.contentEditable = 'false';
-                celula.classList.add('bloqueada');
-                celula.title = 'Preenchido por outra pessoa — você não pode editar';
+                if (!ehData) celula.classList.add('bloqueada');
+                celula.title = 'Preenchido por outra pessoa';
             }
         } else {
-            celula.textContent = '';
+            if (ehData) {
+                const match = id.match(/data_dia(\d+)/);
+                if (match) {
+                    const idx = parseInt(match[1]);
+                    celula.textContent = '📅 ' + (DATAS[idx] || '');
+                }
+            } else {
+                celula.textContent = '';
+            }
             celula.contentEditable = 'true';
             celula.title = '';
         }
@@ -276,7 +323,7 @@ async function salvarCelula(celula) {
 }
 
 function configurarEdicao() {
-    document.querySelectorAll('td[data-id]').forEach(celula => {
+    document.querySelectorAll('td[data-id], .data-dia[data-id]').forEach(celula => {
         celula.addEventListener('keydown', e => {
             if (e.key === 'Enter') { e.preventDefault(); celula.blur(); }
         });
