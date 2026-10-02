@@ -186,7 +186,7 @@ function gerarTabelas() {
             const trCab = document.createElement('tr');
             let htmlCab = `<th>Aula</th>`;
             DIAS.forEach((dia, i) => {
-                const dataId = `${TURNO}_${sala.id}_data_dia${i}`;
+                const dataId = `${TURNO}_${sala.id}_bloco${b}_data_dia${i}`;
                 htmlCab += `
                     <th class="th-cabecalho-dia">
                         <div class="nome-dia">${dia}</div>
