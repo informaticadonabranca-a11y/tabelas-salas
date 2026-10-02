@@ -235,7 +235,7 @@ function gerarTabelas() {
                 tr.className = 'linha-aula';
                 let html = `<td class="coluna-aula">Aula ${n}</td>`;
                 DIAS.forEach((dia, i) => {
-                    const celulaId = `${TURNO}_${sala.id}_aula${n}_dia${i}`;
+                    const celulaId = `${TURNO}_${sala.id}_bloco${b}_aula${n}_dia${i}`;
                     html += `<td contenteditable="true" data-id="${celulaId}" data-sala="${sala.id}"></td>`;
                 });
                 tr.innerHTML = html;
