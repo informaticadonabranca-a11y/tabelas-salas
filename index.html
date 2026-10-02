@@ -1,0 +1,48 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Tabelas de Salas</title>
+<style>
+    body {
+        font-family: Arial, sans-serif;
+        background: #f5f5f5;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        min-height: 100vh;
+        margin: 0;
+    }
+    h1 { color: #333; margin-bottom: 40px; }
+    .botoes { display: flex; gap: 20px; flex-wrap: wrap; justify-content: center; }
+    .btn-turno {
+        display: block;
+        padding: 30px 60px;
+        font-size: 24px;
+        font-weight: bold;
+        text-decoration: none;
+        border-radius: 12px;
+        color: white;
+        transition: transform 0.2s, box-shadow 0.2s;
+        box-shadow: 0 4px 10px rgba(0,0,0,0.15);
+    }
+    .btn-turno:hover {
+        transform: translateY(-3px);
+        box-shadow: 0 6px 15px rgba(0,0,0,0.25);
+    }
+    .btn-manha { background: #f9a825; }
+    .btn-manha:hover { background: #f57f17; }
+    .btn-tarde { background: #3949ab; }
+    .btn-tarde:hover { background: #283593; }
+</style>
+</head>
+<body>
+    <h1>📋 Tabelas de Salas</h1>
+    <div class="botoes">
+        <a href="manha.html" class="btn-turno btn-manha">☀️ Manhã</a>
+        <a href="tarde.html" class="btn-turno btn-tarde">🌙 Tarde</a>
+    </div>
+</body>
+</html>

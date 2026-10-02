@@ -1,0 +1,285 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Turno Tarde</title>
+<style>
+    body { font-family: Arial, sans-serif; margin: 20px; background: #f5f5f5; }
+
+    .topo {
+        display: flex; justify-content: space-between; align-items: center;
+        margin-bottom: 20px; padding: 10px 20px;
+        background: #3949ab; color: white; border-radius: 8px;
+    }
+    .topo h1 { margin: 0; font-size: 22px; }
+    .topo a { color: white; text-decoration: none; font-weight: bold; }
+    .topo a:hover { text-decoration: underline; }
+
+    .barra-acoes { display: flex; justify-content: center; gap: 10px; margin-bottom: 20px; }
+    .barra-acoes button {
+        padding: 10px 20px; border: none; border-radius: 5px;
+        font-size: 14px; font-weight: bold; cursor: pointer; color: white;
+    }
+    .btn-imprimir { background: #222; }
+    .btn-imprimir:hover { background: #000; }
+
+    .tabela-container {
+        margin-bottom: 30px; background: white; padding: 20px;
+        border-radius: 8px; box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+    }
+    h2 { color: #000; margin-bottom: 15px; text-align: center; }
+
+    table { width: 100%; border-collapse: collapse; margin-bottom: 20px; }
+    th, td { border: 1px solid #999; padding: 8px; text-align: center; height: 35px; }
+    th { background: #4a4a4a; color: white; font-weight: bold; }
+    td.coluna-aula { background: #e0e0e0; font-weight: bold; color: #000; width: 120px; }
+
+    td[contenteditable="true"] { cursor: text; background: #fff; }
+    td[contenteditable="true"]:hover { background: #f0f0f0; }
+    td[contenteditable="true"]:focus { outline: 2px solid #000; background: #f5f5f5; }
+    td[contenteditable="true"]:empty::before {
+        content: "clique para escrever"; color: #bbb; font-size: 11px; font-style: italic;
+    }
+
+    tr.linha-aula:nth-child(odd) td { background: #fafafa; }
+    tr.linha-aula:nth-child(even) td { background: #f0f0f0; }
+    tr.linha-aula:nth-child(odd) td.coluna-aula { background: #e0e0e0; }
+    tr.linha-aula:nth-child(even) td.coluna-aula { background: #d5d5d5; }
+    tr.linha-separadora td { height: 15px; border: none; background: transparent !important; }
+
+    .status {
+        text-align: center; margin-bottom: 15px; padding: 8px;
+        border-radius: 5px; font-weight: bold;
+    }
+    .status.online { background: #d4edda; color: #155724; }
+    .status.offline { background: #f8d7da; color: #721c24; }
+
+    @media print {
+        @page { size: A4 landscape; margin: 6mm; }
+        * { -webkit-print-color-adjust: exact !important; print-color-adjust: exact !important; }
+        body { margin: 0; padding: 0; background: white; font-size: 12px; }
+        .barra-acoes, .status, .topo { display: none; }
+        .tabela-container {
+            page-break-after: always; break-after: page;
+            box-shadow: none; border-radius: 0; padding: 0; margin: 0;
+            width: 100%; height: 198mm; box-sizing: border-box;
+            display: flex; flex-direction: column;
+        }
+        .tabela-container:last-child { page-break-after: auto; break-after: auto; }
+        h2 { font-size: 20px; margin: 0 0 6px 0; text-align: center; color: #000; }
+        table { margin-bottom: 0; font-size: 12px; flex: 1; }
+        th, td { border: 1px solid #000; padding: 2px 8px; line-height: 1; }
+        th { background: #4a4a4a !important; color: white !important; font-size: 12px; }
+        td.coluna-aula { color: #000 !important; font-size: 12px; width: 150px; }
+        tr.linha-aula:nth-child(odd) td { background: #fafafa !important; }
+        tr.linha-aula:nth-child(even) td { background: #ececec !important; }
+        tr.linha-aula:nth-child(odd) td.coluna-aula { background: #e0e0e0 !important; }
+        tr.linha-aula:nth-child(even) td.coluna-aula { background: #d5d5d5 !important; }
+        tr { page-break-inside: avoid; break-inside: avoid; }
+        tr.linha-separadora td { height: 2px; border: none; background: transparent !important; }
+        td[contenteditable="true"]:empty::before { content: ""; }
+        td[contenteditable="true"]:focus { outline: none; }
+    }
+</style>
+</head>
+<body>
+
+<div class="topo">
+    <h1>🌙 Turno Tarde</h1>
+    <a href="index.html">← Voltar</a>
+</div>
+
+<div class="status" id="status">⏳ Conectando...</div>
+
+<div class="barra-acoes">
+    <button class="btn-imprimir" onclick="window.print()">🖨️ Imprimir</button>
+</div>
+
+<div id="tabelas"></div>
+
+<script type="module">
+import { initializeApp } from "https://www.gstatic.com/firebasejs/10.7.0/firebase-app.js";
+import { getFirestore, collection, doc, getDocs, setDoc, updateDoc, deleteDoc, onSnapshot }
+    from "https://www.gstatic.com/firebasejs/10.7.0/firebase-firestore.js";
+import { getAuth, signInAnonymously, onAuthStateChanged }
+    from "https://www.gstatic.com/firebasejs/10.7.0/firebase-auth.js";
+
+// ✅ SUAS CREDENCIAIS
+const firebaseConfig = {
+  apiKey: "AIzaSyA2TKdJCfh4tp55bnxV3SUwCLihYVmAd3U",
+  authDomain: "tabelas-salas-4f49c.firebaseapp.com",
+  projectId: "tabelas-salas-4f49c",
+  storageBucket: "tabelas-salas-4f49c.firebasestorage.app",
+  messagingSenderId: "264753669194",
+  appId: "1:264753669194:web:51cc2a78e852647cf632b3"
+};
+
+const app = initializeApp(firebaseConfig);
+const db = getFirestore(app);
+const auth = getAuth(app);
+
+// ====== CONFIGURAÇÃO DO TURNO ======
+const TURNO = 'tarde';
+const SALAS = [
+    { id: 'sala-informatica', nome: 'Sala de Informática' },
+    { id: 'multiuso',         nome: 'Multiuso' },
+    { id: 'itinerante',       nome: 'Itinerante' }
+];
+const DIAS = ['Segunda-Feira', 'Terça-feira', 'Quarta-feira', 'Quinta-feira', 'Sexta-feira'];
+const BLOCOS = 4;
+const AULAS = [1, 2, 3, 4, 5];
+
+let usuarioAtual = null;
+
+function atualizarStatus(texto, tipo) {
+    const el = document.getElementById('status');
+    el.textContent = texto;
+    el.className = 'status ' + tipo;
+}
+
+function gerarTabelas() {
+    const container = document.getElementById('tabelas');
+    container.innerHTML = '';
+
+    SALAS.forEach(sala => {
+        const div = document.createElement('div');
+        div.className = 'tabela-container';
+
+        const h2 = document.createElement('h2');
+        h2.textContent = sala.nome;
+        div.appendChild(h2);
+
+        const table = document.createElement('table');
+        table.className = sala.id;
+        const tbody = document.createElement('tbody');
+
+        for (let b = 0; b < BLOCOS; b++) {
+            const trCab = document.createElement('tr');
+            trCab.innerHTML = `<th>Aula</th>` + DIAS.map(d => `<th>${d}</th>`).join('');
+            tbody.appendChild(trCab);
+
+            AULAS.forEach(n => {
+                const tr = document.createElement('tr');
+                tr.className = 'linha-aula';
+                let html = `<td class="coluna-aula">Aula ${n}</td>`;
+                DIAS.forEach((dia, i) => {
+                    const celulaId = `${TURNO}_${sala.id}_aula${n}_dia${i}`;
+                    html += `<td contenteditable="true" data-id="${celulaId}" data-sala="${sala.id}"></td>`;
+                });
+                tr.innerHTML = html;
+                tbody.appendChild(tr);
+            });
+
+            if (b < BLOCOS - 1) {
+                const trSep = document.createElement('tr');
+                trSep.className = 'linha-separadora';
+                trSep.innerHTML = `<td colspan="6"></td>`;
+                tbody.appendChild(trSep);
+            }
+        }
+
+        table.appendChild(tbody);
+        div.appendChild(table);
+        container.appendChild(div);
+    });
+}
+
+function aplicarDados(dados) {
+    document.querySelectorAll('td[data-id]').forEach(celula => {
+        const id = celula.dataset.id;
+        const dado = dados[id];
+        if (dado && dado.conteudo) {
+            celula.textContent = dado.conteudo;
+            if (dado.dono && dado.dono !== usuarioAtual) {
+                celula.contentEditable = 'false';
+                celula.style.backgroundColor = '#e8e8e8';
+                celula.style.cursor = 'not-allowed';
+                celula.title = 'Preenchido por outro usuário';
+            } else {
+                celula.contentEditable = 'true';
+                celula.style.backgroundColor = '';
+                celula.style.cursor = 'text';
+                celula.title = '';
+            }
+        } else {
+            celula.textContent = '';
+            celula.contentEditable = 'true';
+            celula.style.backgroundColor = '';
+            celula.style.cursor = 'text';
+            celula.title = '';
+        }
+    });
+}
+
+async function salvarCelula(celula) {
+    const id = celula.dataset.id;
+    const conteudo = celula.textContent.trim();
+    const dono = usuarioAtual;
+
+    if (!dono) return;
+
+    try {
+        const docRef = doc(db, "celulas", id);
+        if (conteudo === '') {
+            await deleteDoc(docRef);
+        } else {
+            try {
+                await updateDoc(docRef, { conteudo });
+            } catch (e) {
+                await setDoc(docRef, { conteudo, dono });
+            }
+        }
+    } catch (erro) {
+        console.error("Erro ao salvar:", erro);
+    }
+}
+
+function configurarEdicao() {
+    document.querySelectorAll('td[data-id]').forEach(celula => {
+        celula.addEventListener('keydown', e => {
+            if (e.key === 'Enter') { e.preventDefault(); celula.blur(); }
+        });
+        celula.addEventListener('blur', () => { salvarCelula(celula); });
+    });
+}
+
+function ouvirMudancas() {
+    onSnapshot(collection(db, "celulas"), (snapshot) => {
+        const dados = {};
+        snapshot.forEach(doc => { dados[doc.id] = doc.data(); });
+        aplicarDados(dados);
+    });
+}
+
+async function iniciar() {
+    atualizarStatus("🔐 Autenticando...", "offline");
+    try { await signInAnonymously(auth); }
+    catch (erro) { atualizarStatus("❌ Erro na autenticação", "offline"); return; }
+
+    onAuthStateChanged(auth, async (user) => {
+        if (user) {
+            usuarioAtual = user.uid;
+            atualizarStatus("✅ Conectado — edições sincronizam em tempo real", "online");
+
+            gerarTabelas();
+
+            const snapshot = await getDocs(collection(db, "celulas"));
+            const dados = {};
+            snapshot.forEach(doc => { dados[doc.id] = doc.data(); });
+            aplicarDados(dados);
+            configurarEdicao();
+
+            ouvirMudancas();
+        } else {
+            usuarioAtual = null;
+            atualizarStatus("❌ Não autenticado", "offline");
+        }
+    });
+}
+
+iniciar();
+</script>
+
+</body>
+</html>
