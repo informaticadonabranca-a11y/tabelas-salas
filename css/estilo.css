@@ -1,0 +1,200 @@
+/* ===== ESTILOS GERAIS ===== */
+body { font-family: Arial, sans-serif; margin: 20px; background: #f5f5f5; }
+
+/* ===== TOPO — cor definida por turno ===== */
+.topo {
+    display: flex; justify-content: space-between; align-items: center;
+    margin-bottom: 20px; padding: 10px 20px;
+    color: white; border-radius: 8px;
+    flex-wrap: wrap; gap: 10px;
+}
+body[data-turno="manha"] .topo { background: #f9a825; }   /* Laranja */
+body[data-turno="tarde"] .topo { background: #3949ab; }   /* Azul */
+
+.topo h1 { margin: 0; font-size: 22px; }
+.topo .acoes { display: flex; gap: 10px; align-items: center; }
+.topo a, .topo button {
+    color: white; text-decoration: none; font-weight: bold;
+    background: rgba(255,255,255,0.2);
+    padding: 6px 12px; border-radius: 5px;
+    border: none; cursor: pointer; font-size: 13px;
+}
+.topo a:hover, .topo button:hover { background: rgba(255,255,255,0.35); }
+
+/* ===== BARRA DE AÇÕES ===== */
+.barra-acoes { display: flex; justify-content: center; gap: 10px; margin-bottom: 20px; }
+.barra-acoes button {
+    padding: 10px 20px; border: none; border-radius: 5px;
+    font-size: 14px; font-weight: bold; cursor: pointer; color: white;
+}
+.btn-imprimir { background: #222; }
+.btn-imprimir:hover { background: #000; }
+.btn-visualizar { background: #3949ab; }
+.btn-visualizar:hover { background: #283593; }
+.btn-sair-visualizar { background: #c62828; }
+.btn-sair-visualizar:hover { background: #b71c1c; }
+
+/* ===== TABELAS ===== */
+.tabela-container {
+    margin-bottom: 30px; background: white; padding: 20px;
+    border-radius: 8px; box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+}
+h2 { color: #000; margin-bottom: 15px; text-align: center; }
+table { width: 100%; border-collapse: collapse; margin-bottom: 20px; }
+th, td { border: 1px solid #999; padding: 8px; text-align: center; height: 35px; }
+th { background: #4a4a4a; color: white; font-weight: bold; }
+td.coluna-aula { background: #e0e0e0; font-weight: bold; color: #000; width: 50px; }
+th.th-cabecalho-dia {
+    background: #4a4a4a; color: white; padding: 6px 4px; vertical-align: middle;
+}
+.nome-dia { font-size: 13px; font-weight: bold; margin-bottom: 3px; }
+.data-dia {
+    font-size: 11px; font-weight: normal; background: transparent;
+    border-radius: 3px; padding: 2px 6px; display: inline-block;
+    cursor: text; transition: background 0.15s;
+}
+.data-dia:hover { background: #808080; }
+.data-dia:focus { outline: 2px solid #ffb300; background: #505050; }
+
+/* ===== CÉLULAS EDITÁVEIS ===== */
+td[contenteditable="true"] { cursor: text; background: #fff; font-weight: bold; }
+td[contenteditable="true"]:hover { background: #f0f0f0; }
+td[contenteditable="true"]:focus { outline: 2px solid #000; background: #f5f5f5; }
+td[contenteditable="true"]:empty::before {
+    content: "clique para escrever"; color: #bbb; font-size: 11px; font-style: italic; font-weight: normal;
+}
+td.bloqueada {
+    background-color: #e8e8e8 !important;
+    cursor: not-allowed !important;
+    color: #555;
+}
+td.admin-pode-editar { background-color: #fffbe6 !important; }
+td.admin-pode-editar:hover { background-color: #fff3c4 !important; }
+
+/* ===== ZEBRA ===== */
+tr.linha-aula:nth-child(odd) td { background: #fafafa; }
+tr.linha-aula:nth-child(even) td { background: #f0f0f0; }
+tr.linha-aula:nth-child(odd) td.coluna-aula { background: #e0e0e0; }
+tr.linha-aula:nth-child(even) td.coluna-aula { background: #d5d5d5; }
+tr.linha-separadora td { height: 15px; border: none; background: transparent !important; }
+
+/* ===== STATUS ===== */
+.status {
+    text-align: center; margin-bottom: 15px; padding: 8px;
+    border-radius: 5px; font-weight: bold;
+}
+.status.online { background: #d4edda; color: #155724; }
+.status.offline { background: #f8d7da; color: #721c24; }
+.status.admin { background: #fff3cd; color: #856404; }
+
+/* ===== MODO VISUALIZAÇÃO ===== */
+body.modo-visualizacao {
+    background: #1a1a1a; margin: 0; padding: 15px;
+}
+body.modo-visualizacao .topo,
+body.modo-visualizacao .status,
+body.modo-visualizacao .btn-visualizar,
+body.modo-visualizacao .btn-imprimir {
+    display: none !important;
+}
+body.modo-visualizacao .btn-sair-visualizar {
+    display: inline-block !important;
+    position: fixed; top: 15px; right: 15px;
+    z-index: 9999;
+    box-shadow: 0 4px 15px rgba(0,0,0,0.4);
+    font-size: 14px; padding: 10px 18px;
+}
+body.modo-visualizacao .tabela-container {
+    background: white; margin: 0 auto 20px auto;
+    max-width: 1400px; box-shadow: 0 6px 20px rgba(0,0,0,0.5);
+    border-radius: 10px;
+}
+body.modo-visualizacao h2 { color: #000; font-size: 22px; }
+body.modo-visualizacao table { font-size: 14px; }
+body.modo-visualizacao th,
+body.modo-visualizacao td { padding: 10px 8px; height: 40px; }
+body.modo-visualizacao .nome-dia { font-size: 15px; }
+body.modo-visualizacao .data-dia { font-size: 13px; }
+
+/* Bloqueia edição no modo visualização */
+body.modo-visualizacao td[contenteditable="true"],
+body.modo-visualizacao .data-dia[contenteditable="true"] {
+    cursor: default !important;
+    pointer-events: none !important;
+}
+body.modo-visualizacao td[contenteditable="true"]:hover,
+body.modo-visualizacao .data-dia[contenteditable="true"]:hover {
+    background: inherit !important;
+}
+body.modo-visualizacao td[contenteditable="true"]:focus,
+body.modo-visualizacao .data-dia[contenteditable="true"]:focus {
+    outline: none !important;
+    background: inherit !important;
+}
+
+/* Garante negrito no modo visualização */
+body.modo-visualizacao tr.linha-aula td:not(.coluna-aula) {
+    font-weight: bold !important;
+}
+body.modo-visualizacao td.coluna-aula {
+    font-weight: bold !important;
+}
+
+/* ===== IMPRESSÃO ===== */
+@media print {
+    @page { size: A4 landscape; margin: 6mm; }
+    * { -webkit-print-color-adjust: exact !important; print-color-adjust: exact !important; }
+    body { margin: 0; padding: 0; background: white; font-size: 14px; }
+    .barra-acoes, .status, .topo { display: none; }
+    .tabela-container {
+        page-break-after: always;
+        break-after: page;
+        page-break-inside: avoid;
+        break-inside: avoid;
+        box-shadow: none; border-radius: 0;
+        padding: 0; margin: 0;
+        width: 100%; height: 198mm;
+        box-sizing: border-box;
+        display: flex; flex-direction: column;
+    }
+    .tabela-container:last-child { page-break-after: auto; break-after: auto; }
+    h2 { font-size: 20px; margin: 0 0 6px 0; text-align: center; color: #000; line-height: 1; }
+    table {
+        width: 100%; margin: 0; font-size: 14px;
+        border-collapse: collapse; table-layout: fixed;
+        flex: 1; height: 100%;
+    }
+    th, td {
+        border: 1px solid #000; padding: 2px 5px;
+        text-align: center; vertical-align: middle;
+        line-height: 1.15; overflow: hidden;
+    }
+    tr.linha-aula td:not(.coluna-aula) { font-weight: bold; }
+    tr:not(.linha-aula):not(.linha-separadora) th {
+        background: #4a4a4a !important; color: white !important;
+        font-size: 13px; padding: 2px 4px; height: 22px;
+    }
+    tr:not(.linha-aula):not(.linha-separadora) th:first-child {
+        width: 40px; font-size: 13px;
+    }
+    th.th-cabecalho-dia { vertical-align: middle; }
+    .nome-dia { font-size: 13px; margin-bottom: 1px; font-weight: bold; line-height: 1.05; }
+    .data-dia { font-size: 12px; background: transparent !important; padding: 0; line-height: 1; font-weight: normal; }
+    tr.linha-aula td { height: 29px; }
+    td.coluna-aula {
+        color: #000 !important; font-size: 14px;
+        font-weight: bold; width: 45px;
+    }
+    tr.linha-aula:nth-child(odd) td { background: #fafafa !important; }
+    tr.linha-aula:nth-child(even) td { background: #ececec !important; }
+    tr.linha-aula:nth-child(odd) td.coluna-aula { background: #e0e0e0 !important; }
+    tr.linha-aula:nth-child(even) td.coluna-aula { background: #d5d5d5 !important; }
+    tr.linha-separadora td {
+        height: 6px; border: none;
+        background: transparent !important;
+        padding: 0; line-height: 0;
+    }
+    td[contenteditable="true"]:empty::before { content: ""; }
+    td[contenteditable="true"]:focus { outline: none; }
+    td.bloqueada, td.admin-pode-editar { background-color: inherit !important; }
+}
