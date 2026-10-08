@@ -28,6 +28,68 @@
     }
     .btn-imprimir { background: #222; }
     .btn-imprimir:hover { background: #000; }
+    
+    .btn-visualizar { background: #3949ab; }
+    .btn-visualizar:hover { background: #283593; }
+
+    .btn-sair-visualizar { background: #c62828; }
+    .btn-sair-visualizar:hover { background: #b71c1c; }
+
+    /* ===== MODO VISUALIZAÇÃO (tela cheia) ===== */
+    body.modo-visualizacao {
+        background: #1a1a1a;
+        margin: 0;
+        padding: 15px;
+    }
+
+    body.modo-visualizacao .topo,
+    body.modo-visualizacao .status,
+    body.modo-visualizacao .btn-visualizar,
+    body.modo-visualizacao .btn-imprimir {
+        display: none !important;
+    }
+
+    body.modo-visualizacao .btn-sair-visualizar {
+        display: inline-block !important;
+        position: fixed;
+        top: 15px;
+        right: 15px;
+        z-index: 9999;
+        box-shadow: 0 4px 15px rgba(0,0,0,0.4);
+        font-size: 14px;
+        padding: 10px 18px;
+    }
+
+    body.modo-visualizacao .tabela-container {
+        background: white;
+        margin: 0 auto 20px auto;
+        max-width: 1400px;
+        box-shadow: 0 6px 20px rgba(0,0,0,0.5);
+        border-radius: 10px;
+    }
+
+    body.modo-visualizacao h2 {
+        color: #000;
+        font-size: 22px;
+    }
+
+    body.modo-visualizacao table {
+        font-size: 14px;
+    }
+
+    body.modo-visualizacao th,
+    body.modo-visualizacao td {
+        padding: 10px 8px;
+        height: 40px;
+    }
+
+    body.modo-visualizacao .nome-dia {
+        font-size: 15px;
+    }
+
+    body.modo-visualizacao .data-dia {
+        font-size: 13px;
+    }
     .tabela-container {
         margin-bottom: 30px; background: white; padding: 20px;
         border-radius: 8px; box-shadow: 0 2px 5px rgba(0,0,0,0.1);
@@ -174,6 +236,8 @@
 
 <div class="barra-acoes">
     <button class="btn-imprimir" onclick="window.print()">🖨️ Imprimir</button>
+    <button class="btn-visualizar" onclick="entrarVisualizacao()">🔍 Visualização</button>
+    <button class="btn-sair-visualizar" onclick="sairVisualizacao()" style="display:none">✕ Sair</button>
 </div>
 
 <div id="tabelas"></div>
@@ -381,6 +445,43 @@ window.logoutAdmin = async function() {
         alert("Erro ao sair: " + e.message);
     }
 };
+// ===== MODO VISUALIZAÇÃO =====
+window.entrarVisualizacao = function() {
+    document.body.classList.add('modo-visualizacao');
+
+    // Tenta entrar em tela cheia (fullscreen)
+    const elem = document.documentElement;
+    if (elem.requestFullscreen) {
+        elem.requestFullscreen().catch(err => {
+            console.warn('Não foi possível entrar em tela cheia:', err);
+        });
+    }
+};
+
+window.sairVisualizacao = function() {
+    document.body.classList.remove('modo-visualizacao');
+
+    // Sai da tela cheia se estiver
+    if (document.fullscreenElement) {
+        document.exitFullscreen().catch(err => {
+            console.warn('Erro ao sair da tela cheia:', err);
+        });
+    }
+};
+
+// Sai do modo visualização se apertar ESC
+document.addEventListener('keydown', (e) => {
+    if (e.key === 'Escape' && document.body.classList.contains('modo-visualizacao')) {
+        sairVisualizacao();
+    }
+});
+
+// Se o usuário sair da tela cheia manualmente, sai do modo visualização também
+document.addEventListener('fullscreenchange', () => {
+    if (!document.fullscreenElement && document.body.classList.contains('modo-visualizacao')) {
+        document.body.classList.remove('modo-visualizacao');
+    }
+});
 
 async function iniciar() {
     atualizarStatus("🔐 Autenticando...", "offline");
