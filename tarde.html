@@ -90,6 +90,23 @@
     body.modo-visualizacao .data-dia {
         font-size: 13px;
     }
+        /* Bloqueia edição no modo visualização */
+    body.modo-visualizacao td[contenteditable="true"],
+    body.modo-visualizacao .data-dia[contenteditable="true"] {
+        cursor: default !important;
+        pointer-events: none !important;
+    }
+
+    body.modo-visualizacao td[contenteditable="true"]:hover,
+    body.modo-visualizacao .data-dia[contenteditable="true"]:hover {
+        background: inherit !important;
+    }
+
+    body.modo-visualizacao td[contenteditable="true"]:focus,
+    body.modo-visualizacao .data-dia[contenteditable="true"]:focus {
+        outline: none !important;
+        background: inherit !important;
+    }
     .tabela-container {
         margin-bottom: 30px; background: white; padding: 20px;
         border-radius: 8px; box-shadow: 0 2px 5px rgba(0,0,0,0.1);
@@ -449,6 +466,12 @@ window.logoutAdmin = async function() {
 window.entrarVisualizacao = function() {
     document.body.classList.add('modo-visualizacao');
 
+    // Guarda quais elementos estavam editáveis para restaurar depois
+    document.querySelectorAll('[contenteditable="true"]').forEach(el => {
+        el.dataset.editavelOriginal = 'true';
+        el.contentEditable = 'false';
+    });
+
     // Tenta entrar em tela cheia (fullscreen)
     const elem = document.documentElement;
     if (elem.requestFullscreen) {
@@ -460,6 +483,12 @@ window.entrarVisualizacao = function() {
 
 window.sairVisualizacao = function() {
     document.body.classList.remove('modo-visualizacao');
+
+    // Restaura a editabilidade dos elementos
+    document.querySelectorAll('[data-editavel-original="true"]').forEach(el => {
+        el.contentEditable = 'true';
+        delete el.dataset.editavelOriginal;
+    });
 
     // Sai da tela cheia se estiver
     if (document.fullscreenElement) {
