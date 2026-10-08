@@ -90,6 +90,14 @@
     body.modo-visualizacao .data-dia {
         font-size: 13px;
     }
+        /* Garante negrito no modo visualização */
+    body.modo-visualizacao tr.linha-aula td:not(.coluna-aula) {
+        font-weight: bold !important;
+    }
+
+    body.modo-visualizacao td.coluna-aula {
+        font-weight: bold !important;
+    }
         /* Bloqueia edição no modo visualização */
     body.modo-visualizacao td[contenteditable="true"],
     body.modo-visualizacao .data-dia[contenteditable="true"] {
