@@ -210,7 +210,7 @@ body.modo-visualizacao td.coluna-aula {
     color: white !important;
 }
 .sala-informatica td.coluna-aula {
-    background: #1565c0 !important;
+    background: #1565c070 !important;
     color: white !important;
 }
 
@@ -221,7 +221,7 @@ body.modo-visualizacao td.coluna-aula {
     color: white !important;
 }
 .multiuso td.coluna-aula {
-    background: #2e7d32 !important;
+    background: #2e7d3270 !important;
     color: white !important;
 }
 
@@ -232,7 +232,7 @@ body.modo-visualizacao td.coluna-aula {
     color: white !important;
 }
 .itinerante td.coluna-aula {
-    background: #6a1b9a !important;
+    background: #691b9a70 !important;
     color: white !important;
 }
 
