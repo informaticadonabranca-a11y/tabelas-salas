@@ -141,6 +141,19 @@ body.modo-visualizacao td.coluna-aula {
 }
 
 /* ===== IMPRESSÃO ===== */
+/* ============================================ */
+/* CÉLULAS VAZIAS (para preencher)              */
+/* Fundo suave para indicar onde clicar         */
+/* ============================================ */
+
+tr.linha-aula td[contenteditable="true"]:empty {
+    background: #fff9c4 !important;   /* ← amarelinho claro */
+}
+
+/* No hover das vazias, um tom um pouco mais forte */
+tr.linha-aula td[contenteditable="true"]:empty:hover {
+    background: #fff59d !important;   /* ← amarelo um pouco mais forte */
+}
 @media print {
     @page { size: A4 landscape; margin: 6mm; }
     * { -webkit-print-color-adjust: exact !important; print-color-adjust: exact !important; }
