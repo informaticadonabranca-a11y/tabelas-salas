@@ -140,20 +140,73 @@ body.modo-visualizacao td.coluna-aula {
     font-weight: bold !important;
 }
 
-/* ===== IMPRESSÃO ===== */
+/* ============================================ */
+/* CORES POR SALA — cabeçalho e coluna Aula      */
+/* Células: sempre listradas em P&B              */
+/* ============================================ */
+
+/* ---------- SALA DE INFORMÁTICA (AZUL) ---------- */
+.sala-informatica th,
+.sala-informatica th.th-cabecalho-dia {
+    background: #1565c0 !important;
+    color: white !important;
+}
+.sala-informatica td.coluna-aula {
+    background: #1565c070 !important;
+    color: white !important;
+}
+
+/* ---------- MULTIUSO (VERDE) ---------- */
+.multiuso th,
+.multiuso th.th-cabecalho-dia {
+    background: #2e7d32 !important;
+    color: white !important;
+}
+.multiuso td.coluna-aula {
+    background: #2e7d3270 !important;
+    color: white !important;
+}
+
+/* ---------- ITINERANTE (ROXO) ---------- */
+.itinerante th,
+.itinerante th.th-cabecalho-dia {
+    background: #6a1b9a !important;
+    color: white !important;
+}
+.itinerante td.coluna-aula {
+    background: #691b9a70 !important;
+    color: white !important;
+}
+
+/* ============================================ */
+/* CÉLULAS: SEMPRE LISTRADAS EM P&B             */
+/* (não importa se estão vazias ou preenchidas) */
+/* ============================================ */
+
+/* Linhas ímpares → branco */
+tr.linha-aula:nth-child(odd) td[contenteditable="true"] {
+    background: #ffffff !important;
+}
+
+/* Linhas pares → cinza claro */
+tr.linha-aula:nth-child(even) td[contenteditable="true"] {
+    background: #ececec !important;
+}
+
 /* ============================================ */
 /* CÉLULAS VAZIAS (para preencher)              */
 /* Fundo suave para indicar onde clicar         */
 /* ============================================ */
 
 tr.linha-aula td[contenteditable="true"]:empty {
-    background: #fff9c4 !important;   /* ← amarelinho claro */
+    background: #fff9c4 !important;
 }
 
-/* No hover das vazias, um tom um pouco mais forte */
 tr.linha-aula td[contenteditable="true"]:empty:hover {
-    background: #fff59d !important;   /* ← amarelo um pouco mais forte */
+    background: #fff59d !important;
 }
+
+/* ===== IMPRESSÃO ===== */
 @media print {
     @page { size: A4 landscape; margin: 6mm; }
     * { -webkit-print-color-adjust: exact !important; print-color-adjust: exact !important; }
@@ -210,56 +263,4 @@ tr.linha-aula td[contenteditable="true"]:empty:hover {
     td[contenteditable="true"]:empty::before { content: ""; }
     td[contenteditable="true"]:focus { outline: none; }
     td.bloqueada, td.admin-pode-editar { background-color: inherit !important; }
-}
-/* ============================================ */
-/* CORES POR SALA — cabeçalho e coluna Aula      */
-/* Células: sempre listradas em P&B              */
-/* ============================================ */
-
-/* ---------- SALA DE INFORMÁTICA (AZUL) ---------- */
-.sala-informatica th,
-.sala-informatica th.th-cabecalho-dia {
-    background: #1565c0 !important;
-    color: white !important;
-}
-.sala-informatica td.coluna-aula {
-    background: #1565c070 !important;
-    color: white !important;
-}
-
-/* ---------- MULTIUSO (VERDE) ---------- */
-.multiuso th,
-.multiuso th.th-cabecalho-dia {
-    background: #2e7d32 !important;
-    color: white !important;
-}
-.multiuso td.coluna-aula {
-    background: #2e7d3270 !important;
-    color: white !important;
-}
-
-/* ---------- ITINERANTE (ROXO) ---------- */
-.itinerante th,
-.itinerante th.th-cabecalho-dia {
-    background: #6a1b9a !important;
-    color: white !important;
-}
-.itinerante td.coluna-aula {
-    background: #691b9a70 !important;
-    color: white !important;
-}
-
-/* ============================================ */
-/* CÉLULAS: SEMPRE LISTRADAS EM P&B             */
-/* (não importa se estão vazias ou preenchidas) */
-/* ============================================ */
-
-/* Linhas ímpares → branco */
-tr.linha-aula:nth-child(odd) td[contenteditable="true"] {
-    background: #ffffff !important;
-}
-
-/* Linhas pares → cinza claro */
-tr.linha-aula:nth-child(even) td[contenteditable="true"] {
-    background: #ececec !important;
 }
