@@ -198,9 +198,9 @@ body.modo-visualizacao td.coluna-aula {
     td[contenteditable="true"]:focus { outline: none; }
     td.bloqueada, td.admin-pode-editar { background-color: inherit !important; }
 }
-
 /* ============================================ */
-/* CORES POR SALA                               */
+/* CORES POR SALA — cabeçalho e coluna Aula      */
+/* Células: sempre listradas em P&B              */
 /* ============================================ */
 
 /* ---------- SALA DE INFORMÁTICA (AZUL) ---------- */
@@ -209,23 +209,9 @@ body.modo-visualizacao td.coluna-aula {
     background: #1565c0 !important;
     color: white !important;
 }
-
 .sala-informatica td.coluna-aula {
     background: #1565c0 !important;
     color: white !important;
-}
-
-/* Listra das células vazias */
-.sala-informatica tr.linha-aula:nth-child(odd) td[contenteditable="true"]:empty {
-    background: #e3f2fd !important;
-}
-.sala-informatica tr.linha-aula:nth-child(even) td[contenteditable="true"]:empty {
-    background: #bbdefb !important;
-}
-
-/* Células preenchidas: fundo branco puro (sem listra) */
-.sala-informatica tr.linha-aula td[contenteditable="true"]:not(:empty) {
-    background: #ffffff !important;
 }
 
 /* ---------- MULTIUSO (VERDE) ---------- */
@@ -234,23 +220,9 @@ body.modo-visualizacao td.coluna-aula {
     background: #2e7d32 !important;
     color: white !important;
 }
-
 .multiuso td.coluna-aula {
     background: #2e7d32 !important;
     color: white !important;
-}
-
-/* Listra das células vazias */
-.multiuso tr.linha-aula:nth-child(odd) td[contenteditable="true"]:empty {
-    background: #e8f5e9 !important;
-}
-.multiuso tr.linha-aula:nth-child(even) td[contenteditable="true"]:empty {
-    background: #c8e6c9 !important;
-}
-
-/* Células preenchidas: fundo branco puro */
-.multiuso tr.linha-aula td[contenteditable="true"]:not(:empty) {
-    background: #ffffff !important;
 }
 
 /* ---------- ITINERANTE (ROXO) ---------- */
@@ -259,21 +231,22 @@ body.modo-visualizacao td.coluna-aula {
     background: #6a1b9a !important;
     color: white !important;
 }
-
 .itinerante td.coluna-aula {
     background: #6a1b9a !important;
     color: white !important;
 }
 
-/* Listra das células vazias */
-.itinerante tr.linha-aula:nth-child(odd) td[contenteditable="true"]:empty {
-    background: #f3e5f5 !important;
-}
-.itinerante tr.linha-aula:nth-child(even) td[contenteditable="true"]:empty {
-    background: #e1bee7 !important;
+/* ============================================ */
+/* CÉLULAS: SEMPRE LISTRADAS EM P&B             */
+/* (não importa se estão vazias ou preenchidas) */
+/* ============================================ */
+
+/* Linhas ímpares → branco */
+tr.linha-aula:nth-child(odd) td[contenteditable="true"] {
+    background: #ffffff !important;
 }
 
-/* Células preenchidas: fundo branco puro */
-.itinerante tr.linha-aula td[contenteditable="true"]:not(:empty) {
-    background: #ffffff !important;
+/* Linhas pares → cinza claro */
+tr.linha-aula:nth-child(even) td[contenteditable="true"] {
+    background: #ececec !important;
 }
