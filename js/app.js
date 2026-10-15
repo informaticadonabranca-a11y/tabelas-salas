@@ -346,13 +346,6 @@ async function verificarAcesso(user) {
 
             if (isAdmin) {
                 atualizarStatus("👑 ADMIN — você pode editar qualquer célula", "admin");
-
-                const btnAdmin = document.querySelector('.btn-admin');
-                if (btnAdmin) btnAdmin.style.display = 'inline-block';
-
-                // Mostra os botões de limpar
-                document.querySelectorAll('.btn-limpar-tabela').forEach(b => b.style.display = 'inline-block');
-                document.querySelectorAll('.btn-limpar-semana').forEach(b => b.style.display = 'inline-block');
             } else {
                 atualizarStatus("✅ Conectado — você pode adicionar em células vazias e editar as que criou", "online");
             }
@@ -365,6 +358,16 @@ async function verificarAcesso(user) {
             if (container.children.length === 0) {
                 gerarTabelas();
                 configurarEdicao();
+            }
+
+            // ⬇️ MOVER PARA CÁ (depois de gerarTabelas) ⬇️
+            if (isAdmin) {
+                const btnAdmin = document.querySelector('.btn-admin');
+                if (btnAdmin) btnAdmin.style.display = 'inline-block';
+
+                // Mostra os botões de limpar (agora eles já existem!)
+                document.querySelectorAll('.btn-limpar-tabela').forEach(b => b.style.display = 'inline-block');
+                document.querySelectorAll('.btn-limpar-semana').forEach(b => b.style.display = 'inline-block');
             }
 
             // Carrega os dados
