@@ -224,14 +224,10 @@ tr.linha-aula td[contenteditable="true"]:empty:hover {
         break-inside: avoid;
         box-shadow: none;
         border-radius: 0;
-        padding: 0;
+        padding: 18mm 0;
         margin: 0;
         width: 100%;
-        height: 198mm;
         box-sizing: border-box;
-        display: flex;
-        flex-direction: column;
-        justify-content: center;
     }
     .tabela-container:last-child {
         page-break-after: auto;
