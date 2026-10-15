@@ -67,15 +67,43 @@ function gerarTabelas() {
         const div = document.createElement('div');
         div.className = 'tabela-container';
 
+                // Cabeçalho da tabela com o botão de limpar (só admin)
+        const headerTabela = document.createElement('div');
+        headerTabela.style.cssText = 'display:flex; justify-content:space-between; align-items:center; margin-bottom:15px;';
+
         const h2 = document.createElement('h2');
         h2.textContent = sala.nome;
-        div.appendChild(h2);
+        h2.style.margin = '0';
+        h2.style.flex = '1';
+        h2.style.textAlign = 'center';
+        headerTabela.appendChild(h2);
+
+        const btnLimparTabela = document.createElement('button');
+        btnLimparTabela.textContent = '🗑️ Limpar Tabela';
+        btnLimparTabela.className = 'btn-limpar-tabela';
+        btnLimparTabela.style.display = 'none';
+        btnLimparTabela.onclick = () => limparTabela(sala.id);
+        headerTabela.appendChild(btnLimparTabela);
+
+        div.appendChild(headerTabela);
 
         const table = document.createElement('table');
         table.className = sala.id;
         const tbody = document.createElement('tbody');
 
         for (let b = 0; b < BLOCOS; b++) {
+            // Linha de título com botão "Limpar Semana"
+            const trTitulo = document.createElement('tr');
+            trTitulo.className = 'linha-titulo-semana';
+            trTitulo.innerHTML = `
+                <td colspan="6" style="background:#f0f0f0; padding:6px 10px; text-align:right;">
+                    <span style="float:left; font-weight:bold; color:#333;">📅 Semana ${b + 1}</span>
+                    <button class="btn-limpar-semana" data-bloco="${b}" data-sala="${sala.id}" style="display:none; padding:4px 10px; background:#c62828; color:white; border:none; border-radius:4px; cursor:pointer; font-size:12px; font-weight:bold;">
+                        🗑️ Limpar Semana
+                    </button>
+                </td>`;
+            tbody.appendChild(trTitulo);
+
             const trCab = document.createElement('tr');
             let htmlCab = `<th>Aula</th>`;
             DIAS.forEach((dia, i) => {
@@ -200,6 +228,15 @@ function configurarEdicao() {
             }
         });
     });
+    
+    // Botões de limpar semana
+    document.querySelectorAll('.btn-limpar-semana').forEach(btn => {
+        btn.onclick = () => {
+            const bloco = parseInt(btn.dataset.bloco);
+            const sala = btn.dataset.sala;
+            limparSemana(sala, bloco);
+        };
+    });
 }
 
 let unsubscribeSnapshot = null;
@@ -309,8 +346,13 @@ async function verificarAcesso(user) {
 
             if (isAdmin) {
                 atualizarStatus("👑 ADMIN — você pode editar qualquer célula", "admin");
+
                 const btnAdmin = document.querySelector('.btn-admin');
                 if (btnAdmin) btnAdmin.style.display = 'inline-block';
+
+                // Mostra os botões de limpar
+                document.querySelectorAll('.btn-limpar-tabela').forEach(b => b.style.display = 'inline-block');
+                document.querySelectorAll('.btn-limpar-semana').forEach(b => b.style.display = 'inline-block');
             } else {
                 atualizarStatus("✅ Conectado — você pode adicionar em células vazias e editar as que criou", "online");
             }
@@ -550,6 +592,55 @@ function formatarData(d) {
     const dia = String(d.getDate()).padStart(2, '0');
     const mes = String(d.getMonth() + 1).padStart(2, '0');
     return `${dia}/${mes}`;
+}
+
+// ===== LIMPAR TABELA / SEMANA =====
+async function limparTabela(salaId) {
+    const confirmar = confirm(`⚠️ Limpar TODAS as células da tabela "${salaId}"?\n\nIsso apaga as 4 semanas (dias e datas). Continuar?`);
+    if (!confirmar) return;
+
+    const prefixo = `${TURNO}_${salaId}_`;
+    let apagados = 0;
+
+    try {
+        const snapshot = await getDocs(collection(db, "celulas"));
+
+        for (const docSnap of snapshot.docs) {
+            if (docSnap.id.startsWith(prefixo)) {
+                await deleteDoc(doc(db, "celulas", docSnap.id));
+                apagados++;
+            }
+        }
+
+        console.log(`✅ ${apagados} células apagadas da tabela ${salaId}.`);
+    } catch (e) {
+        console.error("Erro ao limpar tabela:", e);
+        alert("Erro ao limpar tabela. Veja o console.");
+    }
+}
+
+async function limparSemana(salaId, bloco) {
+    const confirmar = confirm(`⚠️ Limpar a Semana ${bloco + 1} da tabela "${salaId}"?\n\nIsso apaga todas as células dessa semana. Continuar?`);
+    if (!confirmar) return;
+
+    const prefixo = `${TURNO}_${salaId}_bloco${bloco}_`;
+    let apagados = 0;
+
+    try {
+        const snapshot = await getDocs(collection(db, "celulas"));
+
+        for (const docSnap of snapshot.docs) {
+            if (docSnap.id.startsWith(prefixo)) {
+                await deleteDoc(doc(db, "celulas", docSnap.id));
+                apagados++;
+            }
+        }
+
+        console.log(`✅ ${apagados} células apagadas da Semana ${bloco + 1} (${salaId}).`);
+    } catch (e) {
+        console.error("Erro ao limpar semana:", e);
+        alert("Erro ao limpar semana. Veja o console.");
+    }
 }
 
 iniciar();
