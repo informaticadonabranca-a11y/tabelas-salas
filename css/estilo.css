@@ -247,6 +247,11 @@ tr.linha-aula td[contenteditable="true"]:empty:hover {
         border-collapse: collapse;
         table-layout: fixed;
     }
+    
+    /* O título fica colado no topo do bloco centralizado */
+    .tabela-container > h2 {
+        margin-top: 0;
+    }
 
     th, td {
         border: 1px solid #000;
