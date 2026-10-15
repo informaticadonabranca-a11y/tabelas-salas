@@ -266,3 +266,102 @@ tr.linha-aula td[contenteditable="true"]:empty:hover {
     td[contenteditable="true"]:focus { outline: none; }
     td.bloqueada, td.admin-pode-editar { background-color: inherit !important; }
 }
+
+/* ============================================ */
+/* RESPONSIVIDADE — TELAS PEQUENAS              */
+/* ============================================ */
+
+/* Tablets (até 900px) */
+@media (max-width: 900px) {
+    body { margin: 10px; }
+    .topo { padding: 8px 12px; }
+    .topo h1 { font-size: 18px; }
+    .topo a, .topo button { padding: 5px 10px; font-size: 12px; }
+    .barra-acoes { flex-wrap: wrap; gap: 6px; }
+    .barra-acoes button { padding: 8px 14px; font-size: 12px; }
+    h2 { font-size: 17px; }
+    th, td { padding: 6px 4px; font-size: 12px; height: 30px; }
+    .nome-dia { font-size: 11px; }
+    .data-dia { font-size: 10px; }
+    td.coluna-aula { font-size: 12px; width: 40px; }
+}
+
+/* Celulares (até 700px) */
+@media (max-width: 700px) {
+    body { margin: 6px; }
+
+    .topo {
+        flex-direction: column;
+        align-items: stretch;
+        padding: 10px;
+    }
+    .topo h1 {
+        font-size: 16px;
+        text-align: center;
+        margin-bottom: 6px;
+    }
+    .topo .acoes {
+        justify-content: center;
+        flex-wrap: wrap;
+    }
+
+    .barra-acoes {
+        flex-direction: column;
+        gap: 8px;
+    }
+    .barra-acoes button {
+        width: 100%;
+        padding: 10px;
+        font-size: 13px;
+    }
+
+    /* ===== TABELA COM ROLAGEM HORIZONTAL ===== */
+    .tabela-container {
+        padding: 8px;
+        border-radius: 6px;
+        overflow-x: auto;              /* ← ROLAGEM HORIZONTAL */
+        -webkit-overflow-scrolling: touch;  /* ← suavidade no iOS */
+    }
+
+    /* Largura mínima para não esmagar a tabela */
+    table {
+        min-width: 560px;
+        font-size: 11px;
+    }
+    th, td { padding: 5px 3px; font-size: 11px; height: 28px; }
+    .nome-dia { font-size: 10px; margin-bottom: 1px; }
+    .data-dia { font-size: 9px; padding: 1px 3px; }
+    td.coluna-aula { font-size: 11px; width: 30px; }
+
+    .status { font-size: 12px; padding: 6px; }
+}
+
+/* Celulares pequenos (até 480px) */
+@media (max-width: 480px) {
+    body { margin: 4px; }
+    .tabela-container { padding: 6px; }
+    h2 { font-size: 14px; }
+    table { min-width: 520px; font-size: 10px; }
+    th, td { padding: 4px 2px; font-size: 10px; height: 26px; }
+    .nome-dia { font-size: 9px; }
+    .data-dia { font-size: 8px; padding: 0 2px; }
+    td.coluna-aula { font-size: 10px; width: 25px; }
+}
+
+/* Barra de rolagem estilizada (só aparece em telas pequenas) */
+@media (max-width: 700px) {
+    .tabela-container::-webkit-scrollbar {
+        height: 8px;
+    }
+    .tabela-container::-webkit-scrollbar-track {
+        background: #f0f0f0;
+        border-radius: 4px;
+    }
+    .tabela-container::-webkit-scrollbar-thumb {
+        background: #888;
+        border-radius: 4px;
+    }
+    .tabela-container::-webkit-scrollbar-thumb:hover {
+        background: #555;
+    }
+}
