@@ -440,7 +440,7 @@ window.removerEmail = async function(email) {
 // Limita o número de caracteres por célula
 document.addEventListener('input', (e) => {
     if (e.target.matches('td[contenteditable="true"]')) {
-        const MAX = 30;
+        const MAX = 20;
         if (e.target.textContent.length > MAX) {
             e.target.textContent = e.target.textContent.slice(0, MAX);
             // Coloca o cursor no final
