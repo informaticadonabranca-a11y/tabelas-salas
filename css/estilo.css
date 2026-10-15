@@ -248,7 +248,7 @@ tr.linha-aula td[contenteditable="true"]:empty:hover {
     th.th-cabecalho-dia { vertical-align: middle; }
     .nome-dia { font-size: 13px; margin-bottom: 1px; font-weight: bold; line-height: 1.05; }
     .data-dia { font-size: 12px; background: transparent !important; padding: 0; line-height: 1; font-weight: normal; }
-    tr.linha-aula td { height: 29px; }
+    tr.linha-aula td { height: 27px; }
     td.coluna-aula {
         color: #000 !important; font-size: 14px;
         font-weight: bold; width: 45px;
