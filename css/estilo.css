@@ -50,20 +50,6 @@ table {
     table-layout: fixed;
 }
 
-/* ⬇️ Coluna Aula bem estreita (só precisa de 1 número) */
-table col:first-child,
-table th:first-child,
-table td:first-child {
-    width: 40px;      /* Largura fixa em pixels */
-    min-width: 40px;
-    max-width: 40px;
-}
-
-/* Cada coluna de dia dividem o resto igualmente */
-th.th-cabecalho-dia {
-    width: auto;      /* Ocupa o espaço restante automaticamente */
-}
-
 th, td {
     border: 1px solid #999;
     padding: 6px 4px;
