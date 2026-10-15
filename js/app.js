@@ -195,8 +195,15 @@ function configurarEdicao() {
     });
 }
 
+let unsubscribeSnapshot = null;
+
 function ouvirMudancas() {
-    onSnapshot(collection(db, "celulas"), (snapshot) => {
+    // Se já estiver ouvindo, cancela o anterior
+    if (unsubscribeSnapshot) {
+        unsubscribeSnapshot();
+    }
+
+    unsubscribeSnapshot = onSnapshot(collection(db, "celulas"), (snapshot) => {
         const dados = {};
         snapshot.forEach(doc => { dados[doc.id] = doc.data(); });
         aplicarDados(dados);
@@ -301,19 +308,26 @@ async function verificarAcesso(user) {
                 atualizarStatus("✅ Conectado — você pode adicionar em células vazias e editar as que criou", "online");
             }
 
+            // Limpa a tela (removendo a mensagem de login, se houver)
             const container = document.getElementById('tabelas');
+            container.innerHTML = '';
+
+            // Gera as tabelas apenas se ainda não existirem
             if (container.children.length === 0) {
                 gerarTabelas();
                 configurarEdicao();
             }
 
+            // Carrega os dados
             const snapshot = await getDocs(collection(db, "celulas"));
             const dados = {};
             snapshot.forEach(doc => { dados[doc.id] = doc.data(); });
             aplicarDados(dados);
 
+            // Escuta mudanças (só se ainda não estiver ouvindo)
             ouvirMudancas();
         } else {
+            // Não autorizado — mostra tela de acesso negado
             atualizarStatus("❌ Acesso negado. Seu e-mail não está autorizado.", "offline");
             document.getElementById('tabelas').innerHTML = `
                 <div style="text-align:center; padding:40px; background:white; border-radius:8px; max-width:500px; margin:30px auto;">
