@@ -47,11 +47,22 @@ table {
     width: 100%;
     border-collapse: collapse;
     margin-bottom: 20px;
-    table-layout: fixed;  /* ← COLUNAS COM LARGURA FIXA */
+    table-layout: fixed;
 }
-/* Cada coluna de dia tem a mesma largura */
-th.th-cabecalho-dia { width: 18%; }
-td.coluna-aula { width: 10%; }
+
+/* ⬇️ Coluna Aula bem estreita (só precisa de 1 número) */
+table col:first-child,
+table th:first-child,
+table td:first-child {
+    width: 40px;      /* Largura fixa em pixels */
+    min-width: 40px;
+    max-width: 40px;
+}
+
+/* Cada coluna de dia dividem o resto igualmente */
+th.th-cabecalho-dia {
+    width: auto;      /* Ocupa o espaço restante automaticamente */
+}
 
 th, td {
     border: 1px solid #999;
@@ -65,7 +76,7 @@ th, td {
 }
 
 th { background: #4a4a4a; color: white; font-weight: bold; }
-td.coluna-aula { background: #e0e0e0; font-weight: bold; color: #000; width: 50px; }
+td.coluna-aula { background: #e0e0e0; font-weight: bold; color: #000; }
 th.th-cabecalho-dia {
     background: #4a4a4a; color: white; padding: 6px 4px; vertical-align: middle;
 }
@@ -273,6 +284,15 @@ tr.linha-aula td[contenteditable="true"]:empty:hover {
         font-size: 12px;
         border-collapse: collapse;
         table-layout: fixed;
+    }
+    
+        /* Coluna Aula bem estreita na impressão */
+    table col:first-child,
+    table th:first-child,
+    table td:first-child {
+        width: 30px;
+        min-width: 30px;
+        max-width: 30px;
     }
     
     /* O título fica colado no topo do bloco centralizado */
