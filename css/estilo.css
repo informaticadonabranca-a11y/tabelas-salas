@@ -27,8 +27,6 @@ body[data-turno="tarde"] .topo { background: #3949ab; }   /* Azul */
     padding: 10px 20px; border: none; border-radius: 5px;
     font-size: 14px; font-weight: bold; cursor: pointer; color: white;
 }
-.btn-imprimir { background: #222; }
-.btn-imprimir:hover { background: #000; }
 .btn-visualizar { background: #3949ab; }
 .btn-visualizar:hover { background: #283593; }
 .btn-sair-visualizar { background: #c62828; }
@@ -47,7 +45,23 @@ table {
     width: 100%;
     border-collapse: collapse;
     margin-bottom: 20px;
-    table-layout: fixed;
+    table-layout: fixed;  /* mantém as colunas fixas */
+}
+
+/* Coluna Aula — bem pequena (5% da largura) */
+th:first-child,
+td.coluna-aula {
+    width: 5%;
+    min-width: 5%;
+    max-width: 5%;
+    padding: 4px 2px;
+}
+
+/* Colunas dos dias — 19% cada (5 × 19% = 95% + 5% = 100%) */
+th.th-cabecalho-dia,
+tr.linha-aula td:not(.coluna-aula) {
+    width: 19%;
+    padding: 6px 4px;
 }
 
 th, td {
@@ -123,10 +137,10 @@ body.modo-visualizacao {
 }
 body.modo-visualizacao .topo,
 body.modo-visualizacao .status,
-body.modo-visualizacao .btn-visualizar,
-body.modo-visualizacao .btn-imprimir {
+body.modo-visualizacao .btn-visualizar {
     display: none !important;
 }
+
 body.modo-visualizacao .btn-sair-visualizar {
     display: inline-block !important;
     position: fixed; top: 15px; right: 15px;
@@ -234,106 +248,6 @@ tr.linha-aula td[contenteditable="true"]:empty {
 
 tr.linha-aula td[contenteditable="true"]:empty:hover {
     background: #fff59d !important;
-}
-
-/* ===== IMPRESSÃO ===== */
-/* ===== IMPRESSÃO ===== */
-@media print {
-    @page { size: A4 landscape; margin: 5mm; }
-    * { -webkit-print-color-adjust: exact !important; print-color-adjust: exact !important; }
-    body { margin: 0; padding: 0; background: white; font-size: 13px; }
-    .barra-acoes, .status, .topo { display: none; }
-
-    /* Cada tabela vira uma "página" independente */
-    .tabela-container {
-        page-break-after: always;
-        break-after: page;
-        page-break-inside: avoid;
-        break-inside: avoid;
-        box-shadow: none;
-        border-radius: 0;
-        padding: 18mm 0;
-        margin: 0;
-        width: 100%;
-        box-sizing: border-box;
-    }
-    .tabela-container:last-child {
-        page-break-after: auto;
-        break-after: auto;
-    }
-
-    h2 { font-size: 17px; margin: 0 0 4px 0; text-align: center; color: #000; line-height: 1; }
-
-    table {
-        width: 100%;
-        margin: 0;
-        font-size: 12px;
-        border-collapse: collapse;
-        table-layout: fixed;
-    }
-    
-        /* Coluna Aula bem estreita na impressão */
-    table col:first-child,
-    table th:first-child,
-    table td:first-child {
-        width: 30px;
-        min-width: 30px;
-        max-width: 30px;
-    }
-    
-    /* O título fica colado no topo do bloco centralizado */
-    .tabela-container > h2 {
-        margin-top: 0;
-    }
-
-    th, td {
-        border: 1px solid #000;
-        padding: 1px 4px;
-        text-align: center;
-        vertical-align: middle;
-        line-height: 1.05;
-        overflow: hidden;
-    }
-    tr.linha-aula td:not(.coluna-aula) { font-weight: bold; }
-    tr:not(.linha-aula):not(.linha-separadora) th {
-        background: #4a4a4a !important;
-        color: white !important;
-        font-size: 11px;
-        padding: 2px 4px;
-        height: 18px;
-    }
-    tr:not(.linha-aula):not(.linha-separadora) th:first-child {
-        width: 35px;
-        font-size: 11px;
-    }
-    th.th-cabecalho-dia { vertical-align: middle; }
-    .nome-dia { font-size: 11px; margin-bottom: 0; font-weight: bold; line-height: 1.05; }
-    .data-dia { font-size: 10px; background: transparent !important; padding: 0; line-height: 1; font-weight: normal; }
-
-    /* Linhas de aula — altura reduzida e sem altura fixa */
-    tr.linha-aula td { height: auto; padding: 3px 4px; }
-
-    td.coluna-aula {
-        color: #000 !important;
-        font-size: 12px;
-        font-weight: bold;
-        width: 35px;
-    }
-
-    tr.linha-aula:nth-child(odd) td { background: #fafafa !important; }
-    tr.linha-aula:nth-child(even) td { background: #ececec !important; }
-    tr.linha-aula:nth-child(odd) td.coluna-aula { background: #e0e0e0 !important; }
-    tr.linha-aula:nth-child(even) td.coluna-aula { background: #d5d5d5 !important; }
-    tr.linha-separadora td {
-        height: 4px;
-        border: none;
-        background: transparent !important;
-        padding: 0;
-        line-height: 0;
-    }
-    td[contenteditable="true"]:empty::before { content: ""; }
-    td[contenteditable="true"]:focus { outline: none; }
-    td.bloqueada, td.admin-pode-editar { background-color: inherit !important; }
 }
 
 /* ===== RESPONSIVIDADE DAS CÉLULAS ===== */
@@ -501,13 +415,4 @@ tr.linha-aula td[contenteditable="true"]:empty:hover {
 .btn-limpar-tabela:hover,
 .btn-limpar-semana:hover {
     background: #b71c1c;
-}
-
-/* Esconde na impressão */
-@media print {
-    .btn-limpar-tabela,
-    .btn-limpar-semana,
-    .linha-titulo-semana {
-        display: none !important;
-    }
 }
