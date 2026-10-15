@@ -89,6 +89,24 @@ function gerarTabelas() {
 
         const table = document.createElement('table');
         table.className = sala.id;
+
+        // 🎯 Colgroup: define a largura de cada coluna explicitamente
+        const colgroup = document.createElement('colgroup');
+        
+        // Coluna "Aula" — bem estreita
+        const colAula = document.createElement('col');
+        colAula.style.width = '40px';
+        colgroup.appendChild(colAula);
+        
+        // 5 colunas de dias — dividem o resto igualmente
+        for (let i = 0; i < 5; i++) {
+            const colDia = document.createElement('col');
+            colDia.style.width = 'auto';
+            colgroup.appendChild(colDia);
+        }
+        
+        table.appendChild(colgroup);
+
         const tbody = document.createElement('tbody');
 
         for (let b = 0; b < BLOCOS; b++) {
