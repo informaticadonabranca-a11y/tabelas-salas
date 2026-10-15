@@ -33,6 +33,8 @@ body[data-turno="tarde"] .topo { background: #3949ab; }   /* Azul */
 .btn-visualizar:hover { background: #283593; }
 .btn-sair-visualizar { background: #c62828; }
 .btn-sair-visualizar:hover { background: #b71c1c; }
+.btn-admin { background: #2e7d32; }
+.btn-admin:hover { background: #1b5e20; }
 
 /* ===== TABELAS ===== */
 .tabela-container {

@@ -1,7 +1,7 @@
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.7.0/firebase-app.js";
-import { getFirestore, collection, doc, getDocs, setDoc, updateDoc, deleteDoc, onSnapshot }
+import { getFirestore, collection, doc, getDoc, getDocs, setDoc, updateDoc, deleteDoc, onSnapshot }
     from "https://www.gstatic.com/firebasejs/10.7.0/firebase-firestore.js";
-import { getAuth, signInAnonymously, onAuthStateChanged, GoogleAuthProvider, signInWithPopup, signOut }
+import { getAuth, onAuthStateChanged, GoogleAuthProvider, signInWithPopup, signOut }
     from "https://www.gstatic.com/firebasejs/10.7.0/firebase-auth.js";
 
 // ===== DETECTA O TURNO PELO ATRIBUTO DO BODY =====
@@ -216,7 +216,7 @@ window.loginGoogle = async function() {
 window.logoutAdmin = async function() {
     try {
         await signOut(auth);
-        await signInAnonymously(auth);
+        location.reload();
     } catch (e) {
         alert("Erro ao sair: " + e.message);
     }
@@ -268,43 +268,159 @@ document.addEventListener('fullscreenchange', () => {
 
 // ===== INICIALIZAÇÃO =====
 async function iniciar() {
-    atualizarStatus("🔐 Autenticando...", "offline");
-
-    try { await signInAnonymously(auth); }
-    catch (erro) { atualizarStatus("❌ Erro na autenticação", "offline"); return; }
+    atualizarStatus("🔐 Conecte-se com sua conta Google", "offline");
 
     onAuthStateChanged(auth, async (user) => {
-        if (!user) {
-            usuarioAtual = null;
-            atualizarStatus("❌ Não autenticado", "offline");
+        if (user) {
+            await verificarAcesso(user);
+        } else {
+            mostrarTelaLogin();
+        }
+    });
+}
+
+async function verificarAcesso(user) {
+    try {
+        atualizarStatus("🔐 Verificando acesso...", "offline");
+
+        const docRef = doc(db, "allowlist", user.email);
+        const docSnap = await getDoc(docRef);
+
+        if (docSnap.exists()) {
+            usuarioAtual = user.uid;
+            isAdmin = (user.email === EMAIL_ADMIN);
+
+            document.getElementById('btnLogin').style.display = 'none';
+            document.getElementById('btnLogout').style.display = 'inline-block';
+
+            if (isAdmin) {
+                atualizarStatus("👑 ADMIN — você pode editar qualquer célula", "admin");
+                const btnAdmin = document.querySelector('.btn-admin');
+                if (btnAdmin) btnAdmin.style.display = 'inline-block';
+            } else {
+                atualizarStatus("✅ Conectado — você pode adicionar em células vazias e editar as que criou", "online");
+            }
+
+            const container = document.getElementById('tabelas');
+            if (container.children.length === 0) {
+                gerarTabelas();
+                configurarEdicao();
+            }
+
+            const snapshot = await getDocs(collection(db, "celulas"));
+            const dados = {};
+            snapshot.forEach(doc => { dados[doc.id] = doc.data(); });
+            aplicarDados(dados);
+
+            ouvirMudancas();
+        } else {
+            atualizarStatus("❌ Acesso negado. Seu e-mail não está autorizado.", "offline");
+            document.getElementById('tabelas').innerHTML = `
+                <div style="text-align:center; padding:40px; background:white; border-radius:8px; max-width:500px; margin:30px auto;">
+                    <h2>🚫 Acesso Negado</h2>
+                    <p>O e-mail <strong>${user.email}</strong> não está autorizado a acessar este sistema.</p>
+                    <p>Entre em contato com o administrador para solicitar acesso.</p>
+                    <button onclick="logoutAdmin()" style="margin-top:20px; padding:10px 20px; cursor:pointer; background:#c62828; color:white; border:none; border-radius:5px; font-weight:bold;">
+                        Sair
+                    </button>
+                </div>
+            `;
+            document.getElementById('btnLogin').style.display = 'none';
+            document.getElementById('btnLogout').style.display = 'inline-block';
+        }
+    } catch (erro) {
+        console.error("Erro ao verificar acesso:", erro);
+        atualizarStatus("❌ Erro ao verificar acesso", "offline");
+    }
+}
+
+function mostrarTelaLogin() {
+    document.getElementById('tabelas').innerHTML = `
+        <div style="text-align:center; padding:60px 40px; background:white; border-radius:8px; max-width:500px; margin:30px auto; box-shadow:0 2px 10px rgba(0,0,0,0.1);">
+            <h2>🔐 Acesso Restrito</h2>
+            <p>Este sistema é restrito a usuários autorizados.</p>
+            <p>Faça login com sua conta Google para continuar.</p>
+            <button onclick="loginGoogle()" style="margin-top:20px; padding:12px 24px; font-size:16px; cursor:pointer; background:#4285f4; color:white; border:none; border-radius:5px; font-weight:bold;">
+                🔑 Entrar com Google
+            </button>
+        </div>
+    `;
+    document.getElementById('btnLogin').style.display = 'none';
+    document.getElementById('btnLogout').style.display = 'none';
+}
+// ===== PAINEL ADMIN =====
+window.abrirPainelAdmin = async function() {
+    if (!isAdmin) return;
+    document.getElementById('painel-admin').style.display = 'block';
+    await carregarListaEmails();
+};
+
+window.fecharPainelAdmin = function() {
+    document.getElementById('painel-admin').style.display = 'none';
+};
+
+async function carregarListaEmails() {
+    const container = document.getElementById('lista-emails');
+    container.innerHTML = 'Carregando...';
+
+    try {
+        const snapshot = await getDocs(collection(db, "allowlist"));
+        if (snapshot.empty) {
+            container.innerHTML = '<p style="color:#999;">Nenhum e-mail autorizado ainda.</p>';
             return;
         }
 
-        usuarioAtual = user.uid;
-        isAdmin = (user.email === EMAIL_ADMIN);
-
-        document.getElementById('btnLogin').style.display = isAdmin ? 'none' : 'inline-block';
-        document.getElementById('btnLogout').style.display = isAdmin ? 'inline-block' : 'none';
-
-        if (isAdmin) {
-            atualizarStatus("👑 ADMIN — você pode editar qualquer célula", "admin");
-        } else {
-            atualizarStatus("✅ Conectado — você pode adicionar em células vazias e editar as que criou", "online");
-        }
-
-        const container = document.getElementById('tabelas');
-        if (container.children.length === 0) {
-            gerarTabelas();
-            configurarEdicao();
-        }
-
-        const snapshot = await getDocs(collection(db, "celulas"));
-        const dados = {};
-        snapshot.forEach(doc => { dados[doc.id] = doc.data(); });
-        aplicarDados(dados);
-
-        ouvirMudancas();
-    });
+        let html = '';
+        snapshot.forEach(doc => {
+            const email = doc.id;
+            const ehAdmin = (email === EMAIL_ADMIN);
+            html += `
+                <div style="display:flex; justify-content:space-between; align-items:center; padding:8px; border-bottom:1px solid #eee;">
+                    <span>${email} ${ehAdmin ? '👑' : ''}</span>
+                    ${!ehAdmin ? `<button onclick="removerEmail('${email}')" style="padding:4px 10px; background:#c62828; color:white; border:none; border-radius:3px; cursor:pointer; font-size:12px;">Remover</button>` : ''}
+                </div>
+            `;
+        });
+        container.innerHTML = html;
+    } catch (e) {
+        console.error(e);
+        container.innerHTML = '<p style="color:red;">Erro ao carregar lista.</p>';
+    }
 }
+
+window.adicionarEmail = async function() {
+    const input = document.getElementById('novo-email');
+    const email = input.value.trim().toLowerCase();
+
+    if (!email || !email.includes('@')) {
+        alert('Digite um e-mail válido.');
+        return;
+    }
+
+    try {
+        await setDoc(doc(db, "allowlist", email), {
+            email: email,
+            addedAt: new Date().toISOString(),
+            addedBy: EMAIL_ADMIN
+        });
+        input.value = '';
+        await carregarListaEmails();
+    } catch (e) {
+        console.error(e);
+        alert('Erro ao adicionar e-mail.');
+    }
+};
+
+window.removerEmail = async function(email) {
+    if (!confirm(`Remover o acesso de ${email}?`)) return;
+
+    try {
+        await deleteDoc(doc(db, "allowlist", email));
+        await carregarListaEmails();
+    } catch (e) {
+        console.error(e);
+        alert('Erro ao remover e-mail.');
+    }
+};
 
 iniciar();
