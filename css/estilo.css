@@ -224,12 +224,14 @@ tr.linha-aula td[contenteditable="true"]:empty:hover {
         break-inside: avoid;
         box-shadow: none;
         border-radius: 0;
-        /* ⬇️ Espaço no topo e embaixo da tabela (metade em cima, metade embaixo) */
-        padding: 22mm 0 22mm 0;
+        padding: 0;
         margin: 0;
         width: 100%;
-        display: block;
+        height: 198mm;
         box-sizing: border-box;
+        display: flex;
+        flex-direction: column;
+        justify-content: center;
     }
     .tabela-container:last-child {
         page-break-after: auto;
