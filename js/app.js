@@ -191,7 +191,14 @@ function configurarEdicao() {
         celula.addEventListener('keydown', e => {
             if (e.key === 'Enter') { e.preventDefault(); celula.blur(); }
         });
-        celula.addEventListener('blur', () => { salvarCelula(celula); });
+        celula.addEventListener('blur', () => { 
+            salvarCelula(celula);
+            
+            // Se for uma data, recalcula a tabela baseado em qualquer dia editado
+            if (celula.dataset.tipo === 'data') {
+                atualizarTabelaInteira(celula);
+            }
+        });
     });
 }
 
@@ -453,5 +460,96 @@ document.addEventListener('input', (e) => {
         }
     }
 });
+// ===== ATUALIZAÇÃO AUTOMÁTICA DA TABELA INTEIRA =====
+async function atualizarTabelaInteira(celulaEditada) {
+    const id = celulaEditada.dataset.id;
+
+    // Extrai a data digitada (remove o emoji 📅 e espaços)
+    const texto = celulaEditada.textContent.replace('📅', '').trim();
+
+    // Interpreta a data
+    const dataEditada = parseData(texto);
+    if (!dataEditada) {
+        console.warn('Não consegui interpretar a data:', texto);
+        return;
+    }
+
+    // Descobre o turno, a sala, o bloco (semana) e o dia da semana editado
+    const match = id.match(/^(manha|tarde)_([a-z-]+)_bloco(\d+)_data_dia(\d+)$/);
+    if (!match) return;
+
+    const turno = match[1];
+    const sala = match[2];
+    const diaEditado = parseInt(match[4]);   // 0=Seg, 1=Ter, 2=Qua, 3=Qui, 4=Sex
+
+    // Calcula a data da Segunda-feira da semana do dia editado
+    const segundaDaSemanaEditada = new Date(dataEditada);
+    segundaDaSemanaEditada.setDate(segundaDaSemanaEditada.getDate() - diaEditado);
+
+    // Agora calcula TODAS as 20 datas a partir dessa Segunda
+    const todasDatas = [];
+    let dataAtual = new Date(segundaDaSemanaEditada);
+
+    for (let semana = 0; semana < 4; semana++) {
+        for (let dia = 0; dia < 5; dia++) {
+            todasDatas.push(new Date(dataAtual));
+            dataAtual.setDate(dataAtual.getDate() + 1);
+
+            // Pula sábado (6) e domingo (0)
+            while (dataAtual.getDay() === 0 || dataAtual.getDay() === 6) {
+                dataAtual.setDate(dataAtual.getDate() + 1);
+            }
+        }
+    }
+
+    // Salva todas as 20 datas no Firestore
+    for (let i = 0; i < todasDatas.length; i++) {
+        const semana = Math.floor(i / 5);
+        const dia = i % 5;
+
+        const dataId = `${turno}_${sala}_bloco${semana}_data_dia${dia}`;
+        const docRef = doc(db, "celulas", dataId);
+        const valor = '📅 ' + formatarData(todasDatas[i]);
+
+        try {
+            await setDoc(docRef, {
+                conteudo: valor,
+                dono: usuarioAtual
+            }, { merge: true });
+        } catch (e) {
+            console.error("Erro ao atualizar data:", e);
+        }
+    }
+
+    console.log(`✅ Tabela "${sala}" (${turno}) atualizada com ${todasDatas.length} datas.`);
+}
+
+// ===== HELPERS DE DATA =====
+function parseData(texto) {
+    // Aceita: "28/09", "28/09/2025", "28-09", "28-09-2025"
+    const limpo = texto.replace(/[^\d\/-]/g, '');
+    const partes = limpo.split(/[\/-]/);
+
+    if (partes.length < 2) return null;
+
+    const dia = parseInt(partes[0]);
+    const mes = parseInt(partes[1]) - 1; // mês começa em 0 no JS
+    const ano = partes[2] ? parseInt(partes[2]) : new Date().getFullYear();
+
+    if (isNaN(dia) || isNaN(mes) || isNaN(ano)) return null;
+
+    const data = new Date(ano, mes, dia);
+
+    // Valida se a data é válida
+    if (isNaN(data.getTime())) return null;
+
+    return data;
+}
+
+function formatarData(d) {
+    const dia = String(d.getDate()).padStart(2, '0');
+    const mes = String(d.getMonth() + 1).padStart(2, '0');
+    return `${dia}/${mes}`;
+}
 
 iniciar();
