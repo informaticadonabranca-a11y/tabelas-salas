@@ -50,6 +50,7 @@ const AULAS = config.aulas;
 
 let usuarioAtual = null;
 let isAdmin = false;
+let estadosSemanas = {};
 
 // ===== STATUS =====
 function atualizarStatus(texto, tipo) {
@@ -96,9 +97,16 @@ function gerarTabelas() {
             // Linha de título com botão "Limpar Semana"
             const trTitulo = document.createElement('tr');
             trTitulo.className = 'linha-titulo-semana';
+            trTitulo.dataset.bloco = b;
+            trTitulo.dataset.sala = sala.id;
             trTitulo.innerHTML = `
                 <td colspan="6" style="background:#f0f0f0; padding:6px 10px; text-align:right;">
                     <span style="float:left; font-weight:bold; color:#333;">📅 Semana ${b + 1}</span>
+
+                    <span class="status-semana" data-bloco="${b}" data-sala="${sala.id}" style="display:none; margin-right:10px; font-weight:bold; padding:3px 8px; border-radius:4px; font-size:11px;"></span>
+                    <button class="btn-toggle-semana" data-bloco="${b}" data-sala="${sala.id}" style="display:none; padding:4px 10px; background:#2e7d32; color:white; border:none; border-radius:4px; cursor:pointer; font-size:12px; font-weight:bold; margin-right:6px;">
+                        🔓 Liberada
+                    </button>
                     <button class="btn-limpar-semana" data-bloco="${b}" data-sala="${sala.id}" style="display:none; padding:4px 10px; background:#c62828; color:white; border:none; border-radius:4px; cursor:pointer; font-size:12px; font-weight:bold;">
                         🗑️ Limpar Semana
                     </button>
@@ -166,6 +174,11 @@ function aplicarDados(dados) {
                 // Datas: NUNCA editáveis para usuários comuns
                 celula.contentEditable = 'false';
                 celula.title = 'Apenas o admin pode alterar as datas';
+            } else if (!isSemanaLiberada(celula.dataset.id)) {
+                // Semana bloqueada
+                celula.contentEditable = 'false';
+                celula.classList.add('bloqueada');
+                celula.title = '🔒 Semana bloqueada pelo administrador';
             } else if (ehDono) {
                 celula.contentEditable = 'true';
                 celula.title = 'Você criou — pode editar';
@@ -191,8 +204,14 @@ function aplicarDados(dados) {
                 }
             } else {
                 celula.textContent = '';
-                celula.contentEditable = 'true';
-                celula.title = '';
+                if (!isAdmin && !isSemanaLiberada(celula.dataset.id)) {
+                    celula.contentEditable = 'false';
+                    celula.classList.add('bloqueada');
+                    celula.title = '🔒 Semana bloqueada pelo administrador';
+                } else {
+                    celula.contentEditable = 'true';
+                    celula.title = '';
+                }
             }
         }
     });
@@ -207,6 +226,14 @@ async function salvarCelula(celula) {
 
     if (!dono) return;
 
+    // Extrai turno, sala e bloco do ID (para as regras do Firestore)
+    const match = id.match(/^(manha|tarde)_([a-z-]+)_bloco(\d+)_/);
+    if (!match) return;
+
+    const turno = match[1];
+    const sala = match[2];
+    const bloco = parseInt(match[3]);
+
     try {
         const docRef = doc(db, "celulas", id);
         if (conteudo === '') {
@@ -215,7 +242,13 @@ async function salvarCelula(celula) {
             try {
                 await updateDoc(docRef, { conteudo });
             } catch (e) {
-                await setDoc(docRef, { conteudo, dono });
+                await setDoc(docRef, {
+                    conteudo,
+                    dono,
+                    turno,
+                    sala,
+                    bloco
+                });
             }
         }
     } catch (erro) {
@@ -243,12 +276,21 @@ function configurarEdicao() {
         });
     });
     
-    // Botões de limpar semana
+        // Botões de limpar semana
     document.querySelectorAll('.btn-limpar-semana').forEach(btn => {
         btn.onclick = () => {
             const bloco = parseInt(btn.dataset.bloco);
             const sala = btn.dataset.sala;
             limparSemana(sala, bloco);
+        };
+    });
+
+    // Botões de toggle (liberar/bloquear semana)
+    document.querySelectorAll('.btn-toggle-semana').forEach(btn => {
+        btn.onclick = () => {
+            const bloco = parseInt(btn.dataset.bloco);
+            const sala = btn.dataset.sala;
+            toggleSemana(sala, bloco);
         };
     });
 }
@@ -379,9 +421,10 @@ async function verificarAcesso(user) {
                 const btnAdmin = document.querySelector('.btn-admin');
                 if (btnAdmin) btnAdmin.style.display = 'inline-block';
 
-                // Mostra os botões de limpar (agora eles já existem!)
                 document.querySelectorAll('.btn-limpar-tabela').forEach(b => b.style.display = 'inline-block');
                 document.querySelectorAll('.btn-limpar-semana').forEach(b => b.style.display = 'inline-block');
+                document.querySelectorAll('.btn-toggle-semana').forEach(b => b.style.display = 'inline-block');
+                document.querySelectorAll('.status-semana').forEach(b => b.style.display = 'inline-block');
             }
 
             // Carrega os dados
@@ -392,6 +435,13 @@ async function verificarAcesso(user) {
 
             // Escuta mudanças (só se ainda não estiver ouvindo)
             ouvirMudancas();
+
+            // Carrega estado das semanas (para TODOS, admin ou não)
+            await carregarEstadoSemanas();
+
+            // Re-aplica dados para refletir bloqueios visuais
+            aplicarDados(dados);
+
         } else {
             // Não autorizado — desloga automaticamente e volta pra tela de login
             console.warn("E-mail não autorizado:", user.email);
@@ -572,7 +622,10 @@ async function atualizarTabelaInteira(celulaEditada) {
         try {
             await setDoc(docRef, {
                 conteudo: valor,
-                dono: usuarioAtual
+                dono: usuarioAtual,
+                turno: turno,
+                sala: sala,
+                bloco: semana
             }, { merge: true });
         } catch (e) {
             console.error("Erro ao atualizar data:", e);
@@ -657,6 +710,97 @@ async function limparSemana(salaId, bloco) {
         console.error("Erro ao limpar semana:", e);
         alert("Erro ao limpar semana. Veja o console.");
     }
+}
+
+// ===== LIBERAR / BLOQUEAR SEMANA =====
+async function toggleSemana(sala, bloco) {
+    const semanaId = `${TURNO}_${sala}_bloco${bloco}`;
+    const docRef = doc(db, "semanas", semanaId);
+
+    try {
+        const docSnap = await getDoc(docRef);
+        let liberada = true;
+
+        if (docSnap.exists()) {
+            liberada = docSnap.data().liberada !== false;
+        }
+
+        const novoEstado = !liberada;
+
+        await setDoc(docRef, {
+            liberada: novoEstado,
+            atualizadoEm: new Date().toISOString(),
+            atualizadoPor: EMAIL_ADMIN
+        }, { merge: true });
+
+        // Atualiza em memória
+        estadosSemanas[semanaId] = novoEstado;
+        atualizarUISemana(sala, bloco, novoEstado);
+
+        // Re-aplica dados para atualizar bloqueio visual
+        const snapshot = await getDocs(collection(db, "celulas"));
+        const dados = {};
+        snapshot.forEach(doc => { dados[doc.id] = doc.data(); });
+        aplicarDados(dados);
+    } catch (e) {
+        console.error("Erro ao alternar semana:", e);
+        alert("Erro ao alterar o estado da semana.");
+    }
+}
+
+function atualizarUISemana(sala, bloco, liberada) {
+    const btn = document.querySelector(`.btn-toggle-semana[data-sala="${sala}"][data-bloco="${bloco}"]`);
+    const status = document.querySelector(`.status-semana[data-sala="${sala}"][data-bloco="${bloco}"]`);
+
+    if (!btn) return;
+
+    if (liberada) {
+        btn.textContent = '🔓 Liberada';
+        btn.style.background = '#2e7d32';  // verde
+        if (status) {
+            status.textContent = '🔓 LIBERADA';
+            status.style.background = '#c8e6c9';
+            status.style.color = '#1b5e20';
+        }
+    } else {
+        btn.textContent = '🔒 Bloqueada';
+        btn.style.background = '#c62828';  // vermelho
+        if (status) {
+            status.textContent = '🔒 BLOQUEADA';
+            status.style.background = '#ffcdd2';
+            status.style.color = '#b71c1c';
+        }
+    }
+}
+
+async function carregarEstadoSemanas() {
+    try {
+        const snapshot = await getDocs(collection(db, "semanas"));
+
+        snapshot.forEach(doc => {
+            estadosSemanas[doc.id] = doc.data().liberada !== false;
+        });
+
+        // Aplica em todos os blocos
+        document.querySelectorAll('.btn-toggle-semana').forEach(btn => {
+            const sala = btn.dataset.sala;
+            const bloco = parseInt(btn.dataset.bloco);
+            const semanaId = `${TURNO}_${sala}_bloco${bloco}`;
+            const liberada = estadosSemanas[semanaId] !== false;
+
+            atualizarUISemana(sala, bloco, liberada);
+        });
+    } catch (e) {
+        console.error("Erro ao carregar estados das semanas:", e);
+    }
+}
+
+function isSemanaLiberada(celulaId) {
+    const match = celulaId.match(/^(manha|tarde)_([a-z-]+)_bloco(\d+)_/);
+    if (!match) return true;
+
+    const semanaId = `${match[1]}_${match[2]}_bloco${match[3]}`;
+    return estadosSemanas[semanaId] !== false;
 }
 
 iniciar();
