@@ -393,24 +393,23 @@ async function verificarAcesso(user) {
             // Escuta mudanças (só se ainda não estiver ouvindo)
             ouvirMudancas();
         } else {
-            // Não autorizado — mostra tela de acesso negado
-            atualizarStatus("❌ Acesso negado. Seu e-mail não está autorizado.", "offline");
-            document.getElementById('tabelas').innerHTML = `
-                <div style="text-align:center; padding:40px; background:white; border-radius:8px; max-width:500px; margin:30px auto;">
-                    <h2>🚫 Acesso Negado</h2>
-                    <p>O e-mail <strong>${user.email}</strong> não está autorizado a acessar este sistema.</p>
-                    <p>Entre em contato com o administrador para solicitar acesso.</p>
-                    <button onclick="logoutAdmin()" style="margin-top:20px; padding:10px 20px; cursor:pointer; background:#c62828; color:white; border:none; border-radius:5px; font-weight:bold;">
-                        Sair
-                    </button>
-                </div>
-            `;
-            document.getElementById('btnLogin').style.display = 'none';
-            document.getElementById('btnLogout').style.display = 'inline-block';
+            // Não autorizado — desloga automaticamente e volta pra tela de login
+            console.warn("E-mail não autorizado:", user.email);
+            atualizarStatus("❌ Seu e-mail não está autorizado. Escolha outra conta.", "offline");
+
+            // Desloga o usuário atual
+            await signOut(auth);
+
+            // Mostra a tela de login para ele escolher outra conta
+            mostrarTelaLogin();
         }
     } catch (erro) {
         console.error("Erro ao verificar acesso:", erro);
-        atualizarStatus("❌ Erro ao verificar acesso", "offline");
+        atualizarStatus("❌ Erro ao verificar acesso. Escolha uma conta.", "offline");
+
+        // Em caso de erro, desloga e volta pra tela de login
+        try { await signOut(auth); } catch (e) {}
+        mostrarTelaLogin();
     }
 }
 
