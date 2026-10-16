@@ -106,11 +106,11 @@ function gerarTabelas() {
             tbody.appendChild(trTitulo);
 
             const trCab = document.createElement('tr');
-            let htmlCab = `<th>Aula</th>`;
+            let htmlCab = `<th style="width: 40px !important; min-width: 40px; max-width: 40px;">Aula</th>`;
             DIAS.forEach((dia, i) => {
                 const dataId = `${TURNO}_${sala.id}_bloco${b}_data_dia${i}`;
                 htmlCab += `
-                    <th class="th-cabecalho-dia">
+                    <th class="th-cabecalho-dia" style="width: auto;">
                         <div class="nome-dia">${dia}</div>
                         <div class="data-dia" contenteditable="true" data-id="${dataId}" data-tipo="data">📅 ${DATAS[i]}</div>
                     </th>`;
@@ -121,10 +121,10 @@ function gerarTabelas() {
             AULAS.forEach(n => {
                 const tr = document.createElement('tr');
                 tr.className = 'linha-aula';
-                let html = `<td class="coluna-aula">${n}</td>`;
+                let html = `<td class="coluna-aula" style="width: 40px !important; min-width: 40px; max-width: 40px;">${n}</td>`;
                 DIAS.forEach((dia, i) => {
                     const celulaId = `${TURNO}_${sala.id}_bloco${b}_aula${n}_dia${i}`;
-                    html += `<td contenteditable="true" data-id="${celulaId}" data-sala="${sala.id}"></td>`;
+                    html += `<td contenteditable="true" data-id="${celulaId}" data-sala="${sala.id}" style="max-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;"></td>`;
                 });
                 tr.innerHTML = html;
                 tbody.appendChild(tr);
