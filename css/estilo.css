@@ -71,10 +71,9 @@ th, td {
     padding: 6px 4px;
     text-align: center;
     height: 35px;
-    min-height: 35px;
-    max-height: 35px;
     overflow: hidden;
     vertical-align: middle;
+    max-width: 0;
 }
 
 th { background: #4a4a4a; color: white; font-weight: bold; }
