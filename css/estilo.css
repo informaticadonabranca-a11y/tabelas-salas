@@ -45,6 +45,7 @@ table {
     width: 100%;
     border-collapse: collapse;
     margin-bottom: 20px;
+    table-layout: fixed;  /* impede as colunas de crescerem com o conteúdo */
 }
 
 /* Coluna Aula — bem pequena */
@@ -55,9 +56,14 @@ td.coluna-aula {
     padding: 4px 2px;
 }
 
-/* Colunas dos dias — dividem o espaço automaticamente */
-th.th-cabecalho-dia {
+/* Colunas dos dias — dividem o espaço restante igualmente */
+th.th-cabecalho-dia,
+tr.linha-aula td:not(.coluna-aula) {
+    width: auto;
     padding: 6px 4px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
 }
 
 th, td {
@@ -96,6 +102,8 @@ td[contenteditable="true"] {
     display: table-cell;
     vertical-align: middle;
     white-space: nowrap;
+    max-width: 0;
+
 }
 
 td[contenteditable="true"]:hover { background: #f0f0f0; }
