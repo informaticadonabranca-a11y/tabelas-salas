@@ -425,7 +425,10 @@ async function verificarAcesso(user) {
                 document.querySelectorAll('.btn-toggle-semana').forEach(b => b.style.display = 'inline-block');
             }
 
-            // Carrega os dados
+            // Carrega estado das semanas PRIMEIRO
+            await carregarEstadoSemanas();
+
+            // Carrega os dados das células
             const snapshot = await getDocs(collection(db, "celulas"));
             const dados = {};
             snapshot.forEach(doc => { dados[doc.id] = doc.data(); });
@@ -433,12 +436,6 @@ async function verificarAcesso(user) {
 
             // Escuta mudanças (só se ainda não estiver ouvindo)
             ouvirMudancas();
-
-            // Carrega estado das semanas (para TODOS, admin ou não)
-            await carregarEstadoSemanas();
-
-            // Re-aplica dados para refletir bloqueios visuais
-            aplicarDados(dados);
 
         } else {
             // Não autorizado — desloga automaticamente e volta pra tela de login
@@ -787,7 +784,12 @@ function isSemanaLiberada(celulaId) {
     if (!match) return true;
 
     const semanaId = `${match[1]}_${match[2]}_bloco${match[3]}`;
-    return estadosSemanas[semanaId] !== false;
+
+    // Se o estado ainda não foi carregado, assume LIBERADA (default)
+    if (estadosSemanas[semanaId] === undefined) return true;
+
+    // Retorna o estado real
+    return estadosSemanas[semanaId] === true;
 }
 
 iniciar();
