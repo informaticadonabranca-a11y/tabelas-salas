@@ -52,6 +52,7 @@ table {
 th:first-child,
 td.coluna-aula {
     width: 40px;
+    min-width: 40px;
     padding: 4px 2px;
 }
 
@@ -65,15 +66,22 @@ tr.linha-aula td:not(.coluna-aula) {
     white-space: nowrap;
 }
 
-th.th-cabecalho-dia {
-    background: #4a4a4a;
-    color: white;
+th, td {
+    border: 1px solid #999;
+    padding: 6px 4px;
+    text-align: center;
+    height: 35px;
+    min-height: 35px;
+    max-height: 35px;
+    overflow: hidden;
     vertical-align: middle;
 }
 
 th { background: #4a4a4a; color: white; font-weight: bold; }
 td.coluna-aula { background: #e0e0e0; font-weight: bold; color: #000; }
-
+th.th-cabecalho-dia {
+    background: #4a4a4a; color: white; padding: 6px 4px; vertical-align: middle;
+}
 .nome-dia { font-size: 13px; font-weight: bold; margin-bottom: 3px; }
 .data-dia {
     font-size: 11px; font-weight: normal; background: transparent;
@@ -89,7 +97,9 @@ td[contenteditable="true"] {
     cursor: text;
     background: #fff;
     font-weight: bold;
+    overflow: hidden;
     text-overflow: ellipsis;
+    display: table-cell;
     vertical-align: middle;
     white-space: nowrap;
     max-width: 0;
@@ -244,6 +254,46 @@ tr.linha-aula td[contenteditable="true"]:empty:hover {
     background: #fff59d !important;
 }
 
+/* ===== RESPONSIVIDADE DAS CÉLULAS ===== */
+
+/* Tablets (até 900px) */
+@media (max-width: 900px) {
+    th, td {
+        height: 32px;
+        min-height: 32px;
+        max-height: 32px;
+        padding: 4px 3px;
+        font-size: 12px;
+    }
+    td.coluna-aula { font-size: 12px; }
+}
+
+/* Celulares (até 700px) */
+@media (max-width: 700px) {
+    th, td {
+        height: 28px;
+        min-height: 28px;
+        max-height: 28px;
+        padding: 3px 2px;
+        font-size: 11px;
+    }
+    td.coluna-aula { font-size: 11px; }
+    .nome-dia { font-size: 10px; }
+    .data-dia { font-size: 9px; }
+}
+
+/* Celulares pequenos (até 480px) */
+@media (max-width: 480px) {
+    th, td {
+        height: 26px;
+        min-height: 26px;
+        max-height: 26px;
+        padding: 2px;
+        font-size: 10px;
+    }
+    td.coluna-aula { font-size: 10px; }
+}
+
 /* ============================================ */
 /* RESPONSIVIDADE — TELAS PEQUENAS              */
 /* ============================================ */
@@ -296,10 +346,11 @@ tr.linha-aula td[contenteditable="true"]:empty:hover {
     .tabela-container {
         padding: 8px;
         border-radius: 6px;
-        overflow-x: auto;
-        -webkit-overflow-scrolling: touch;
+        overflow-x: auto;              /* ← ROLAGEM HORIZONTAL */
+        -webkit-overflow-scrolling: touch;  /* ← suavidade no iOS */
     }
 
+    /* Largura mínima para não esmagar a tabela */
     table {
         min-width: 560px;
         font-size: 11px;
@@ -310,8 +361,22 @@ tr.linha-aula td[contenteditable="true"]:empty:hover {
     td.coluna-aula { font-size: 11px; width: 30px; }
 
     .status { font-size: 12px; padding: 6px; }
+}
 
-    /* ===== BARRA DE ROLAGEM ESTILIZADA ===== */
+/* Celulares pequenos (até 480px) */
+@media (max-width: 480px) {
+    body { margin: 4px; }
+    .tabela-container { padding: 6px; }
+    h2 { font-size: 14px; }
+    table { min-width: 520px; font-size: 10px; }
+    th, td { padding: 4px 2px; font-size: 10px; height: 26px; }
+    .nome-dia { font-size: 9px; }
+    .data-dia { font-size: 8px; padding: 0 2px; }
+    td.coluna-aula { font-size: 10px; width: 25px; }
+}
+
+/* Barra de rolagem estilizada (só aparece em telas pequenas) */
+@media (max-width: 700px) {
     .tabela-container::-webkit-scrollbar {
         height: 8px;
     }
@@ -326,18 +391,6 @@ tr.linha-aula td[contenteditable="true"]:empty:hover {
     .tabela-container::-webkit-scrollbar-thumb:hover {
         background: #555;
     }
-}
-
-/* Celulares pequenos (até 480px) */
-@media (max-width: 480px) {
-    body { margin: 4px; }
-    .tabela-container { padding: 6px; }
-    h2 { font-size: 14px; }
-    table { min-width: 520px; font-size: 10px; }
-    th, td { padding: 4px 2px; font-size: 10px; height: 26px; }
-    .nome-dia { font-size: 9px; }
-    .data-dia { font-size: 8px; padding: 0 2px; }
-    td.coluna-aula { font-size: 10px; width: 25px; }
 }
 
 /* ===== BOTÕES DE LIMPAR ===== */
