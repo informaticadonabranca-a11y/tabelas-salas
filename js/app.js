@@ -103,7 +103,6 @@ function gerarTabelas() {
                 <td colspan="6" style="background:#f0f0f0; padding:6px 10px; text-align:right;">
                     <span style="float:left; font-weight:bold; color:#333;">📅 Semana ${b + 1}</span>
 
-                    <span class="status-semana" data-bloco="${b}" data-sala="${sala.id}" style="display:none; margin-right:10px; font-weight:bold; padding:3px 8px; border-radius:4px; font-size:11px;"></span>
                     <button class="btn-toggle-semana" data-bloco="${b}" data-sala="${sala.id}" style="display:none; padding:4px 10px; background:#2e7d32; color:white; border:none; border-radius:4px; cursor:pointer; font-size:12px; font-weight:bold; margin-right:6px;">
                         🔓 Liberada
                     </button>
@@ -424,7 +423,6 @@ async function verificarAcesso(user) {
                 document.querySelectorAll('.btn-limpar-tabela').forEach(b => b.style.display = 'inline-block');
                 document.querySelectorAll('.btn-limpar-semana').forEach(b => b.style.display = 'inline-block');
                 document.querySelectorAll('.btn-toggle-semana').forEach(b => b.style.display = 'inline-block');
-                document.querySelectorAll('.status-semana').forEach(b => b.style.display = 'inline-block');
             }
 
             // Carrega os dados
@@ -750,26 +748,15 @@ async function toggleSemana(sala, bloco) {
 
 function atualizarUISemana(sala, bloco, liberada) {
     const btn = document.querySelector(`.btn-toggle-semana[data-sala="${sala}"][data-bloco="${bloco}"]`);
-    const status = document.querySelector(`.status-semana[data-sala="${sala}"][data-bloco="${bloco}"]`);
 
     if (!btn) return;
 
     if (liberada) {
         btn.textContent = '🔓 Liberada';
         btn.style.background = '#2e7d32';  // verde
-        if (status) {
-            status.textContent = '🔓 LIBERADA';
-            status.style.background = '#c8e6c9';
-            status.style.color = '#1b5e20';
-        }
     } else {
         btn.textContent = '🔒 Bloqueada';
         btn.style.background = '#c62828';  // vermelho
-        if (status) {
-            status.textContent = '🔒 BLOQUEADA';
-            status.style.background = '#ffcdd2';
-            status.style.color = '#b71c1c';
-        }
     }
 }
 
