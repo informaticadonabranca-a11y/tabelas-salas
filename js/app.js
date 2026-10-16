@@ -158,15 +158,20 @@ function aplicarDados(dados) {
             const ehDono = dado.dono && dado.dono === usuarioAtual;
 
             if (isAdmin) {
+                // Admin pode editar tudo
                 celula.contentEditable = 'true';
                 if (!ehData) celula.classList.add('admin-pode-editar');
                 celula.title = '👑 Você (admin) pode editar';
+            } else if (ehData) {
+                // Datas: NUNCA editáveis para usuários comuns
+                celula.contentEditable = 'false';
+                celula.title = 'Apenas o admin pode alterar as datas';
             } else if (ehDono) {
                 celula.contentEditable = 'true';
                 celula.title = 'Você criou — pode editar';
             } else {
                 celula.contentEditable = 'false';
-                if (!ehData) celula.classList.add('bloqueada');
+                celula.classList.add('bloqueada');
                 celula.title = 'Preenchido por outra pessoa';
             }
         } else {
@@ -176,11 +181,19 @@ function aplicarDados(dados) {
                     const idx = parseInt(match[1]);
                     celula.textContent = '📅 ' + (DATAS[idx] || '');
                 }
+                // Se for data e NÃO for admin → não deixa editar
+                if (isAdmin) {
+                    celula.contentEditable = 'true';
+                    celula.title = '👑 Você (admin) pode editar a data';
+                } else {
+                    celula.contentEditable = 'false';
+                    celula.title = 'Apenas o admin pode alterar as datas';
+                }
             } else {
                 celula.textContent = '';
+                celula.contentEditable = 'true';
+                celula.title = '';
             }
-            celula.contentEditable = 'true';
-            celula.title = '';
         }
     });
 }
@@ -222,9 +235,9 @@ function configurarEdicao() {
         });
         celula.addEventListener('blur', () => { 
             salvarCelula(celula);
-            
-            // Se for uma data, recalcula a tabela baseado em qualquer dia editado
-            if (celula.dataset.tipo === 'data') {
+    
+            // Se for uma data E for admin, recalcula a tabela
+            if (celula.dataset.tipo === 'data' && isAdmin) {
                 atualizarTabelaInteira(celula);
             }
         });
