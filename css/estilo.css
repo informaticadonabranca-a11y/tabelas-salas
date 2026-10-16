@@ -48,20 +48,24 @@ table {
     table-layout: fixed;  /* mantém as colunas fixas */
 }
 
-/* Coluna Aula — bem pequena (5% da largura) */
+/* Coluna Aula — bem pequena */
 th:first-child,
 td.coluna-aula {
-    width: 5%;
-    min-width: 5%;
-    max-width: 5%;
-    padding: 4px 2px;
+    width: 40px !important;
+    min-width: 40px !important;
+    max-width: 40px !important;
+    padding: 4px 2px !important;
 }
 
-/* Colunas dos dias — 19% cada (5 × 19% = 95% + 5% = 100%) */
-th.th-cabecalho-dia,
-tr.linha-aula td:not(.coluna-aula) {
-    width: 19%;
+/* Colunas dos dias — dividem o resto igualmente */
+th.th-cabecalho-dia {
+    width: auto !important;
     padding: 6px 4px;
+}
+
+/* Força cada dia a ter a mesma largura via CSS Grid-like */
+table tr:not(.linha-titulo-semana) th:not(:first-child) {
+    width: 1%;       /* truque: 1% força elas a dividirem o resto igualmente */
 }
 
 th, td {
