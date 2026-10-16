@@ -295,6 +295,7 @@ function configurarEdicao() {
 }
 
 let unsubscribeSnapshot = null;
+let unsubscribeSemanas = null;
 
 function ouvirMudancas() {
     // Se já estiver ouvindo, cancela o anterior
@@ -306,6 +307,35 @@ function ouvirMudancas() {
         const dados = {};
         snapshot.forEach(doc => { dados[doc.id] = doc.data(); });
         aplicarDados(dados);
+    });
+
+    // 🆕 OUVE AS MUDANÇAS EM SEMANAS EM TEMPO REAL
+    if (unsubscribeSemanas) {
+        unsubscribeSemanas();
+    }
+
+    unsubscribeSemanas = onSnapshot(collection(db, "semanas"), (snapshot) => {
+        // Reconstrói o mapa de estados
+        snapshot.forEach(doc => {
+            estadosSemanas[doc.id] = doc.data().liberada !== false;
+        });
+
+        // Atualiza botões de cada semana
+        document.querySelectorAll('.btn-toggle-semana').forEach(btn => {
+            const sala = btn.dataset.sala;
+            const bloco = parseInt(btn.dataset.bloco);
+            const semanaId = `${TURNO}_${sala}_bloco${bloco}`;
+            const liberada = estadosSemanas[semanaId] !== false;
+
+            atualizarUISemana(sala, bloco, liberada);
+        });
+
+        // Re-aplica dados para atualizar bloqueio visual das células
+        getDocs(collection(db, "celulas")).then(snap => {
+            const dados = {};
+            snap.forEach(doc => { dados[doc.id] = doc.data(); });
+            aplicarDados(dados);
+        });
     });
 }
 
