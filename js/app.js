@@ -360,8 +360,16 @@ window.logoutAdmin = async function() {
 
 // ===== MODO VISUALIZAÇÃO =====
 window.entrarVisualizacao = function() {
+    // Se o usuário não logou, gera as tabelas vazias na hora
+    const container = document.getElementById('tabelas');
+    if (container.children.length === 0 || !container.querySelector('table')) {
+        container.innerHTML = '';
+        gerarTabelas();
+    }
+
     document.body.classList.add('modo-visualizacao');
 
+    // Bloqueia TODAS as células editáveis
     document.querySelectorAll('[contenteditable="true"]').forEach(el => {
         el.dataset.editavelOriginal = 'true';
         el.contentEditable = 'false';
@@ -378,10 +386,17 @@ window.entrarVisualizacao = function() {
 window.sairVisualizacao = function() {
     document.body.classList.remove('modo-visualizacao');
 
-    document.querySelectorAll('[data-editavel-original="true"]').forEach(el => {
-        el.contentEditable = 'true';
-        delete el.dataset.editavelOriginal;
-    });
+    // Se não estiver logado, volta para a tela de login
+    if (!usuarioAtual) {
+        document.getElementById('tabelas').innerHTML = '';
+        mostrarTelaLogin();
+    } else {
+        // Se estiver logado, devolve o contenteditable para as células
+        document.querySelectorAll('[data-editavel-original="true"]').forEach(el => {
+            el.contentEditable = 'true';
+            delete el.dataset.editavelOriginal;
+        });
+    }
 
     if (document.fullscreenElement) {
         document.exitFullscreen().catch(err => {
@@ -428,7 +443,6 @@ async function verificarAcesso(user) {
 
             document.getElementById('btnLogin').style.display = 'none';
             document.getElementById('btnLogout').style.display = 'inline-block';
-            document.querySelector('.btn-visualizar').style.display = 'inline-block';
 
             if (isAdmin) {
                 atualizarStatus("👑 ADMIN — você pode editar qualquer célula", "admin");
