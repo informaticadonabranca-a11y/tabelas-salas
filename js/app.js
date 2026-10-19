@@ -428,6 +428,7 @@ async function verificarAcesso(user) {
 
             document.getElementById('btnLogin').style.display = 'none';
             document.getElementById('btnLogout').style.display = 'inline-block';
+            document.querySelector('.btn-visualizar').style.display = 'inline-block';
 
             if (isAdmin) {
                 atualizarStatus("👑 ADMIN — você pode editar qualquer célula", "admin");
