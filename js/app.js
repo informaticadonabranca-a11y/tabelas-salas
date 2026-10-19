@@ -359,12 +359,25 @@ window.logoutAdmin = async function() {
 };
 
 // ===== MODO VISUALIZAÇÃO =====
-window.entrarVisualizacao = function() {
-    // Se o usuário não logou, gera as tabelas vazias na hora
+window.entrarVisualizacao = async function() {
     const container = document.getElementById('tabelas');
+
+    // Se as tabelas ainda não existem, gera e carrega os dados
     if (container.children.length === 0 || !container.querySelector('table')) {
         container.innerHTML = '';
         gerarTabelas();
+
+        // 🆕 Carrega os dados do Firestore (mesmo sem login)
+        try {
+            const snapshot = await getDocs(collection(db, "celulas"));
+            const dados = {};
+            snapshot.forEach(doc => { dados[doc.id] = doc.data(); });
+            
+            // Aplica os dados SEM verificar permissões (modo visualização)
+            aplicarDadosVisualizacao(dados);
+        } catch (e) {
+            console.warn('Não foi possível carregar dados:', e);
+        }
     }
 
     document.body.classList.add('modo-visualizacao');
@@ -835,6 +848,35 @@ function isSemanaLiberada(celulaId) {
 
     // Retorna o estado real
     return estadosSemanas[semanaId] === true;
+}
+
+// ===== APLICAR DADOS EM MODO VISUALIZAÇÃO =====
+function aplicarDadosVisualizacao(dados) {
+    document.querySelectorAll('td[data-id], .data-dia[data-id]').forEach(celula => {
+        const id = celula.dataset.id;
+        const dado = dados[id];
+        const ehData = celula.dataset.tipo === 'data';
+
+        celula.classList.remove('bloqueada', 'admin-pode-editar');
+
+        if (dado && dado.conteudo) {
+            celula.textContent = dado.conteudo;
+        } else {
+            // Se não tem dado, mostra o padrão
+            if (ehData) {
+                const match = id.match(/data_dia(\d+)$/);
+                if (match) {
+                    const idx = parseInt(match[1]);
+                    celula.textContent = '📅 ' + (DATAS[idx] || '');
+                }
+            } else {
+                celula.textContent = '';
+            }
+        }
+
+        // Em modo visualização, nada é editável
+        celula.contentEditable = 'false';
+    });
 }
 
 iniciar();
