@@ -43,7 +43,7 @@ const SALAS = [
     { id: 'multiuso',         nome: `Multiuso - ${config.sufixo}` },
     { id: 'itinerante',       nome: `Itinerante - ${config.sufixo}` }
 ];
-const DIAS = ['Segunda-Feira', 'Terça-feira', 'Quarta-feira', 'Quinta-feira', 'Sexta-feira'];
+const DIAS = ['Segunda', 'Terça', 'Quarta', 'Quinta', 'Sexta'];
 const DATAS = ['28/09', '29/09', '30/09', '01/10', '02/10'];
 const BLOCOS = 4;
 const AULAS = config.aulas;
