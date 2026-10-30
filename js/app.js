@@ -42,6 +42,10 @@ let isAdmin = false;
 let estadosSemanas = {};
 let totalSemanasPorSala = {};
 
+// 🆕 CACHE LOCAL — guarda o último estado recebido pelo onSnapshot de células.
+// Usado por ações admin para re-renderizar SEM reler o banco.
+let dadosCelulas = {};
+
 function atualizarStatus(texto, tipo) {
     const el = document.getElementById('status');
     el.textContent = texto;
@@ -137,11 +141,10 @@ function gerarTabelas() {
         btnAdd.dataset.sala = sala.id;
         btnAdd.textContent = '➕ Adicionar Semana';
 
-        // 🎨 Cor do botão conforme a sala
         const coresPorSala = {
-            'sala-informatica': '#1565c0',  // Azul
-            'multiuso':         '#2e7d32',  // Verde
-            'itinerante':       '#6a1b9a'   // Roxo
+            'sala-informatica': '#1565c0',
+            'multiuso':         '#2e7d32',
+            'itinerante':       '#6a1b9a'
         };
         const corBotao = coresPorSala[sala.id] || '#2e7d32';
 
@@ -152,7 +155,6 @@ function gerarTabelas() {
         container.appendChild(div);
     });
 }
-
 function aplicarDados(dados) {
     document.querySelectorAll('td[data-id], .data-dia[data-id]').forEach(celula => {
         const id = celula.dataset.id;
@@ -291,13 +293,16 @@ let unsubscribeSnapshot = null;
 let unsubscribeSemanas = null;
 
 function ouvirMudancas() {
+    // Snapshot de células — mantém dadosCelulas sempre atualizado em tempo real.
     if (unsubscribeSnapshot) unsubscribeSnapshot();
     unsubscribeSnapshot = onSnapshot(collection(db, "celulas"), (snapshot) => {
-        const dados = {};
-        snapshot.forEach(doc => { dados[doc.id] = doc.data(); });
-        aplicarDados(dados);
+        dadosCelulas = {};                                  // 🆕
+        snapshot.forEach(doc => { dadosCelulas[doc.id] = doc.data(); });
+        aplicarDados(dadosCelulas);
     });
 
+    // Snapshot de semanas — atualiza UI de bloqueio/liberação.
+    // 🆕 NÃO faz mais getDocs(celulas) dentro. Só reaplica dadosCelulas.
     if (unsubscribeSemanas) unsubscribeSemanas();
     unsubscribeSemanas = onSnapshot(collection(db, "semanas"), (snapshot) => {
         snapshot.forEach(doc => {
@@ -312,11 +317,8 @@ function ouvirMudancas() {
             atualizarUISemana(sala, bloco, liberada);
         });
 
-        getDocs(collection(db, "celulas")).then(snap => {
-            const dados = {};
-            snap.forEach(doc => { dados[doc.id] = doc.data(); });
-            aplicarDados(dados);
-        });
+        // 🆕 Reaplica os dados que já estão em memória (não lê o banco).
+        aplicarDados(dadosCelulas);
     });
 }
 
@@ -477,10 +479,12 @@ async function verificarAcesso(user) {
                 document.querySelectorAll('.btn-adicionar-semana').forEach(b => b.style.display = 'inline-block');
             }
 
+            // Carga inicial única — depois disso, quem mantém os dados atualizados
+            // é o onSnapshot de ouvirMudancas().
             const snapshot = await getDocs(collection(db, "celulas"));
-            const dados = {};
-            snapshot.forEach(doc => { dados[doc.id] = doc.data(); });
-            aplicarDados(dados);
+            dadosCelulas = {};                                  // 🆕
+            snapshot.forEach(doc => { dadosCelulas[doc.id] = doc.data(); });
+            aplicarDados(dadosCelulas);
 
             ouvirMudancas();
 
@@ -587,7 +591,6 @@ document.addEventListener('input', (e) => {
         }
     }
 });
-
 async function atualizarTabelaInteira(celulaEditada) {
     const id = celulaEditada.dataset.id;
     const texto = celulaEditada.textContent.replace('📅', '').trim();
@@ -657,6 +660,7 @@ async function limparTabela(salaId) {
         for (const d of snapshot.docs) {
             if (d.id.startsWith(prefixo)) await deleteDoc(doc(db, "celulas", d.id));
         }
+        // 🆕 NÃO faz getDocs de novo. O onSnapshot reage sozinho.
     } catch (e) { console.error(e); alert("Erro ao limpar tabela."); }
 }
 
@@ -668,6 +672,7 @@ async function limparSemana(salaId, bloco) {
         for (const d of snapshot.docs) {
             if (d.id.startsWith(prefixo)) await deleteDoc(doc(db, "celulas", d.id));
         }
+        // 🆕 NÃO faz getDocs de novo. O onSnapshot reage sozinho.
     } catch (e) { console.error(e); alert("Erro ao limpar semana."); }
 }
 
@@ -686,10 +691,7 @@ async function toggleSemana(sala, bloco) {
         }, { merge: true });
         estadosSemanas[semanaId] = novoEstado;
         atualizarUISemana(sala, bloco, novoEstado);
-        const snapshot = await getDocs(collection(db, "celulas"));
-        const dados = {};
-        snapshot.forEach(doc => { dados[doc.id] = doc.data(); });
-        aplicarDados(dados);
+        // 🆕 NÃO faz getDocs de células. O onSnapshot de semanas reage.
     } catch (e) { console.error(e); alert("Erro ao alternar semana."); }
 }
 
@@ -745,12 +747,11 @@ async function adicionarSemana(salaId) {
             document.querySelectorAll('.btn-apagar-semana').forEach(b => b.style.display = 'inline-block');
             document.querySelectorAll('.btn-adicionar-semana').forEach(b => b.style.display = 'inline-block');
         }
-        const snapshot = await getDocs(collection(db, "celulas"));
-        const dados = {};
-        snapshot.forEach(doc => { dados[doc.id] = doc.data(); });
-        aplicarDados(dados);
+        // 🆕 NÃO faz getDocs. Reaplica dadosCelulas em memória.
+        aplicarDados(dadosCelulas);
     } catch (e) { console.error(e); alert("Erro ao adicionar semana."); }
 }
+
 async function apagarSemana(salaId, bloco, totalAtual) {
     if (totalAtual <= MIN_SEMANAS) {
         alert(`⚠️ É necessário manter ao menos ${MIN_SEMANAS} semana por tabela.`);
@@ -780,7 +781,7 @@ async function apagarSemana(salaId, bloco, totalAtual) {
                 await setDoc(doc(db, "celulas", novoId), dados);
                 await deleteDoc(doc(db, "celulas", d.id));
             }
-            
+
             const estadoAntigo = await getDoc(doc(db, "semanas", `${TURNO}_${salaId}_bloco${i + 1}`));
             if (estadoAntigo.exists()) {
                 await setDoc(doc(db, "semanas", `${TURNO}_${salaId}_bloco${i}`), estadoAntigo.data());
@@ -799,7 +800,7 @@ async function apagarSemana(salaId, bloco, totalAtual) {
         container.innerHTML = '';
         gerarTabelas();
         configurarEdicao();
-        
+
         if (isAdmin) {
             document.querySelectorAll('.btn-limpar-tabela').forEach(b => b.style.display = 'inline-block');
             document.querySelectorAll('.btn-limpar-semana').forEach(b => b.style.display = 'inline-block');
@@ -807,11 +808,11 @@ async function apagarSemana(salaId, bloco, totalAtual) {
             document.querySelectorAll('.btn-apagar-semana').forEach(b => b.style.display = 'inline-block');
             document.querySelectorAll('.btn-adicionar-semana').forEach(b => b.style.display = 'inline-block');
         }
-        
-        const snapAtualizado = await getDocs(collection(db, "celulas"));
-        const dados = {};
-        snapAtualizado.forEach(doc => { dados[doc.id] = doc.data(); });
-        aplicarDados(dados);
+
+        // 🆕 NÃO faz getDocs. Reaplica dadosCelulas em memória.
+        // (O onSnapshot vai receber os deletes/setDocs e atualizar sozinho,
+        //  mas reaplicar aqui evita "piscar" a tela.)
+        aplicarDados(dadosCelulas);
 
     } catch (e) {
         console.error(e);
