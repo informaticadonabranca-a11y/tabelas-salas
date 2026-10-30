@@ -4,24 +4,14 @@ import { getFirestore, collection, doc, getDoc, getDocs, setDoc, updateDoc, dele
 import { getAuth, onAuthStateChanged, GoogleAuthProvider, signInWithPopup, signOut }
     from "https://www.gstatic.com/firebasejs/10.7.0/firebase-auth.js";
 
-// ===== DETECTA O TURNO PELO ATRIBUTO DO BODY =====
-const TURNO = document.body.dataset.turno;   // 'manha' ou 'tarde'
-
-// Configurações que mudam por turno
+// ===== CONFIGURAÇÕES =====
+const TURNO = document.body.dataset.turno;
 const CONFIG_POR_TURNO = {
-    manha: {
-        sufixo: 'Manhã',
-        aulas: [1, 2, 3, 4, 5, 6]    // 6 aulas na manhã
-    },
-    tarde: {
-        sufixo: 'Tarde',
-        aulas: [1, 2, 3, 4, 5]       // 5 aulas na tarde
-    }
+    manha: { sufixo: 'Manhã', aulas: [1, 2, 3, 4, 5, 6] },
+    tarde: { sufixo: 'Tarde', aulas: [1, 2, 3, 4, 5] }
 };
-
 const config = CONFIG_POR_TURNO[TURNO];
 
-// ===== FIREBASE =====
 const firebaseConfig = {
   apiKey: "AIzaSyA2TkDJCfh4tp55bnxV3SUwClihYVmAd3U",
   authDomain: "tabelas-salas-4f49c.firebaseapp.com",
@@ -32,12 +22,10 @@ const firebaseConfig = {
 };
 
 const EMAIL_ADMIN = "informaticadonabranca@gmail.com";
-
 const app = initializeApp(firebaseConfig);
 const db = getFirestore(app);
 const auth = getAuth(app);
 
-// ===== CONSTANTES =====
 const SALAS = [
     { id: 'sala-informatica', nome: `Sala de Informática - ${config.sufixo}` },
     { id: 'multiuso',         nome: `Multiuso - ${config.sufixo}` },
@@ -45,21 +33,21 @@ const SALAS = [
 ];
 const DIAS = ['Segunda', 'Terça', 'Quarta', 'Quinta', 'Sexta'];
 const DATAS = ['28/09', '29/09', '30/09', '01/10', '02/10'];
-const BLOCOS = 4;
+const MAX_SEMANAS = 4;
+const MIN_SEMANAS = 1;
 const AULAS = config.aulas;
 
 let usuarioAtual = null;
 let isAdmin = false;
 let estadosSemanas = {};
+let totalSemanasPorSala = {};
 
-// ===== STATUS =====
 function atualizarStatus(texto, tipo) {
     const el = document.getElementById('status');
     el.textContent = texto;
     el.className = 'status ' + tipo;
 }
 
-// ===== GERAR TABELAS =====
 function gerarTabelas() {
     const container = document.getElementById('tabelas');
     container.innerHTML = '';
@@ -68,7 +56,6 @@ function gerarTabelas() {
         const div = document.createElement('div');
         div.className = 'tabela-container';
 
-                // Cabeçalho da tabela com o botão de limpar (só admin)
         const headerTabela = document.createElement('div');
         headerTabela.style.cssText = 'display:flex; justify-content:space-between; align-items:center; margin-bottom:15px;';
 
@@ -90,25 +77,22 @@ function gerarTabelas() {
 
         const table = document.createElement('table');
         table.className = sala.id;
-
         const tbody = document.createElement('tbody');
 
-        for (let b = 0; b < BLOCOS; b++) {
-            // Linha de título com botão "Limpar Semana"
+        const chaveSala = `${TURNO}_${sala.id}`;
+        const totalBlocos = totalSemanasPorSala[chaveSala] || MAX_SEMANAS;
+
+        for (let b = 0; b < totalBlocos; b++) {
             const trTitulo = document.createElement('tr');
             trTitulo.className = 'linha-titulo-semana';
             trTitulo.dataset.bloco = b;
             trTitulo.dataset.sala = sala.id;
             trTitulo.innerHTML = `
                 <td colspan="6" style="background:#f0f0f0; padding:6px 10px; text-align:right;">
-                    <span style="float:left; font-weight:bold; color:#333;">📅 Semana ${b + 1}</span>
-
-                    <button class="btn-toggle-semana" data-bloco="${b}" data-sala="${sala.id}" style="display:none; padding:4px 10px; background:#2e7d32; color:white; border:none; border-radius:4px; cursor:pointer; font-size:12px; font-weight:bold; margin-right:6px;">
-                        🔓 Liberada
-                    </button>
-                    <button class="btn-limpar-semana" data-bloco="${b}" data-sala="${sala.id}" style="display:none; padding:4px 10px; background:#c62828; color:white; border:none; border-radius:4px; cursor:pointer; font-size:12px; font-weight:bold;">
-                        🗑️ Limpar Semana
-                    </button>
+                    <span style="float:left; font-weight:bold; color:#333;">📅 Semana ${b + 1} - ${sala.nome}</span>
+                    <button class="btn-toggle-semana" data-bloco="${b}" data-sala="${sala.id}" style="display:none; padding:4px 10px; background:#2e7d32; color:white; border:none; border-radius:4px; cursor:pointer; font-size:12px; font-weight:bold; margin-right:6px;">🔓 Liberada</button>
+                    <button class="btn-limpar-semana" data-bloco="${b}" data-sala="${sala.id}" style="display:none; padding:4px 10px; background:#f57c00; color:white; border:none; border-radius:4px; cursor:pointer; font-size:12px; font-weight:bold; margin-right:6px;">🧹 Limpar</button>
+                    <button class="btn-apagar-semana" data-bloco="${b}" data-sala="${sala.id}" data-total="${totalBlocos}" style="display:none; padding:4px 10px; background:#c62828; color:white; border:none; border-radius:4px; cursor:pointer; font-size:12px; font-weight:bold;">🗑️ Apagar</button>
                 </td>`;
             tbody.appendChild(trTitulo);
 
@@ -137,7 +121,7 @@ function gerarTabelas() {
                 tbody.appendChild(tr);
             });
 
-            if (b < BLOCOS - 1) {
+            if (b < totalBlocos - 1) {
                 const trSep = document.createElement('tr');
                 trSep.className = 'linha-separadora';
                 trSep.innerHTML = `<td colspan="6"></td>`;
@@ -147,11 +131,19 @@ function gerarTabelas() {
 
         table.appendChild(tbody);
         div.appendChild(table);
+
+        const btnAdd = document.createElement('button');
+        btnAdd.className = 'btn-adicionar-semana';
+        btnAdd.dataset.sala = sala.id;
+        btnAdd.textContent = '➕ Adicionar Semana';
+        btnAdd.style.cssText = 'display:none; margin-top:15px; padding:10px 20px; background:#2e7d32; color:white; border:none; border-radius:5px; cursor:pointer; font-weight:bold; font-size:13px; width:100%;';
+        btnAdd.onclick = () => adicionarSemana(sala.id);
+        div.appendChild(btnAdd);
+
         container.appendChild(div);
     });
 }
 
-// ===== APLICAR DADOS =====
 function aplicarDados(dados) {
     document.querySelectorAll('td[data-id], .data-dia[data-id]').forEach(celula => {
         const id = celula.dataset.id;
@@ -165,16 +157,13 @@ function aplicarDados(dados) {
             const ehDono = dado.dono && dado.dono === usuarioAtual;
 
             if (isAdmin) {
-                // Admin pode editar tudo
                 celula.contentEditable = 'true';
                 if (!ehData) celula.classList.add('admin-pode-editar');
                 celula.title = '👑 Você (admin) pode editar';
             } else if (ehData) {
-                // Datas: NUNCA editáveis para usuários comuns
                 celula.contentEditable = 'false';
                 celula.title = 'Apenas o admin pode alterar as datas';
             } else if (!isSemanaLiberada(celula.dataset.id)) {
-                // Semana bloqueada
                 celula.contentEditable = 'false';
                 celula.classList.add('bloqueada');
                 celula.title = '🔒 Semana bloqueada pelo administrador';
@@ -193,7 +182,6 @@ function aplicarDados(dados) {
                     const idx = parseInt(match[1]);
                     celula.textContent = '📅 ' + (DATAS[idx] || '');
                 }
-                // Se for data e NÃO for admin → não deixa editar
                 if (isAdmin) {
                     celula.contentEditable = 'true';
                     celula.title = '👑 Você (admin) pode editar a data';
@@ -216,7 +204,6 @@ function aplicarDados(dados) {
     });
 }
 
-// ===== SALVAR =====
 async function salvarCelula(celula) {
     const id = celula.dataset.id;
     const conteudo = celula.textContent.trim();
@@ -225,7 +212,6 @@ async function salvarCelula(celula) {
 
     if (!dono) return;
 
-    // Extrai turno, sala e bloco do ID (para as regras do Firestore)
     const match = id.match(/^(manha|tarde)_([a-z-]+)_bloco(\d+)_/);
     if (!match) return;
 
@@ -241,13 +227,7 @@ async function salvarCelula(celula) {
             try {
                 await updateDoc(docRef, { conteudo });
             } catch (e) {
-                await setDoc(docRef, {
-                    conteudo,
-                    dono,
-                    turno,
-                    sala,
-                    bloco
-                });
+                await setDoc(docRef, { conteudo, dono, turno, sala, bloco });
             }
         }
     } catch (erro) {
@@ -256,7 +236,6 @@ async function salvarCelula(celula) {
     }
 }
 
-// ===== EVENTOS =====
 function configurarEdicao() {
     document.querySelectorAll('td[data-id], .data-dia[data-id]').forEach(celula => {
         celula.addEventListener('focus', () => {
@@ -265,17 +244,14 @@ function configurarEdicao() {
         celula.addEventListener('keydown', e => {
             if (e.key === 'Enter') { e.preventDefault(); celula.blur(); }
         });
-        celula.addEventListener('blur', () => { 
+        celula.addEventListener('blur', () => {
             salvarCelula(celula);
-    
-            // Se for uma data E for admin, recalcula a tabela
             if (celula.dataset.tipo === 'data' && isAdmin) {
                 atualizarTabelaInteira(celula);
             }
         });
     });
-    
-        // Botões de limpar semana
+
     document.querySelectorAll('.btn-limpar-semana').forEach(btn => {
         btn.onclick = () => {
             const bloco = parseInt(btn.dataset.bloco);
@@ -284,12 +260,20 @@ function configurarEdicao() {
         };
     });
 
-    // Botões de toggle (liberar/bloquear semana)
     document.querySelectorAll('.btn-toggle-semana').forEach(btn => {
         btn.onclick = () => {
             const bloco = parseInt(btn.dataset.bloco);
             const sala = btn.dataset.sala;
             toggleSemana(sala, bloco);
+        };
+    });
+
+    document.querySelectorAll('.btn-apagar-semana').forEach(btn => {
+        btn.onclick = () => {
+            const bloco = parseInt(btn.dataset.bloco);
+            const sala = btn.dataset.sala;
+            const total = parseInt(btn.dataset.total);
+            apagarSemana(sala, bloco, total);
         };
     });
 }
@@ -298,39 +282,27 @@ let unsubscribeSnapshot = null;
 let unsubscribeSemanas = null;
 
 function ouvirMudancas() {
-    // Se já estiver ouvindo, cancela o anterior
-    if (unsubscribeSnapshot) {
-        unsubscribeSnapshot();
-    }
-
+    if (unsubscribeSnapshot) unsubscribeSnapshot();
     unsubscribeSnapshot = onSnapshot(collection(db, "celulas"), (snapshot) => {
         const dados = {};
         snapshot.forEach(doc => { dados[doc.id] = doc.data(); });
         aplicarDados(dados);
     });
 
-    // 🆕 OUVE AS MUDANÇAS EM SEMANAS EM TEMPO REAL
-    if (unsubscribeSemanas) {
-        unsubscribeSemanas();
-    }
-
+    if (unsubscribeSemanas) unsubscribeSemanas();
     unsubscribeSemanas = onSnapshot(collection(db, "semanas"), (snapshot) => {
-        // Reconstrói o mapa de estados
         snapshot.forEach(doc => {
             estadosSemanas[doc.id] = doc.data().liberada !== false;
         });
 
-        // Atualiza botões de cada semana
         document.querySelectorAll('.btn-toggle-semana').forEach(btn => {
             const sala = btn.dataset.sala;
             const bloco = parseInt(btn.dataset.bloco);
             const semanaId = `${TURNO}_${sala}_bloco${bloco}`;
             const liberada = estadosSemanas[semanaId] !== false;
-
             atualizarUISemana(sala, bloco, liberada);
         });
 
-        // Re-aplica dados para atualizar bloqueio visual das células
         getDocs(collection(db, "celulas")).then(snap => {
             const dados = {};
             snap.forEach(doc => { dados[doc.id] = doc.data(); });
@@ -339,50 +311,43 @@ function ouvirMudancas() {
     });
 }
 
-// ===== LOGIN / LOGOUT =====
 window.loginGoogle = async function() {
     const provider = new GoogleAuthProvider();
-    try {
-        await signInWithPopup(auth, provider);
-    } catch (e) {
-        alert("Erro ao fazer login: " + e.message);
-    }
+    try { await signInWithPopup(auth, provider); }
+    catch (e) { alert("Erro ao fazer login: " + e.message); }
 };
 
 window.logoutAdmin = async function() {
-    try {
-        await signOut(auth);
-        location.reload();
-    } catch (e) {
-        alert("Erro ao sair: " + e.message);
-    }
+    try { await signOut(auth); location.reload(); }
+    catch (e) { alert("Erro ao sair: " + e.message); }
 };
 
-// ===== MODO VISUALIZAÇÃO =====
 window.entrarVisualizacao = async function() {
     const container = document.getElementById('tabelas');
 
-    // Se as tabelas ainda não existem, gera e carrega os dados
     if (container.children.length === 0 || !container.querySelector('table')) {
-        container.innerHTML = '';
-        gerarTabelas();
-
-        // 🆕 Carrega os dados do Firestore (mesmo sem login)
         try {
+            const configSnap = await getDocs(collection(db, "config"));
+            configSnap.forEach(doc => {
+                const chave = doc.id.replace('_totalSemanas', '');
+                totalSemanasPorSala[chave] = doc.data().total || MAX_SEMANAS;
+            });
+            SALAS.forEach(sala => {
+                const chave = `${TURNO}_${sala.id}`;
+                if (totalSemanasPorSala[chave] === undefined) totalSemanasPorSala[chave] = MAX_SEMANAS;
+            });
+
+            container.innerHTML = '';
+            gerarTabelas();
+
             const snapshot = await getDocs(collection(db, "celulas"));
             const dados = {};
             snapshot.forEach(doc => { dados[doc.id] = doc.data(); });
-            
-            // Aplica os dados SEM verificar permissões (modo visualização)
             aplicarDadosVisualizacao(dados);
-        } catch (e) {
-            console.warn('Não foi possível carregar dados:', e);
-        }
+        } catch (e) { console.warn('Não foi possível carregar:', e); }
     }
 
     document.body.classList.add('modo-visualizacao');
-
-    // Bloqueia TODAS as células editáveis
     document.querySelectorAll('[contenteditable="true"]').forEach(el => {
         el.dataset.editavelOriginal = 'true';
         el.contentEditable = 'false';
@@ -390,21 +355,17 @@ window.entrarVisualizacao = async function() {
 
     const elem = document.documentElement;
     if (elem.requestFullscreen) {
-        elem.requestFullscreen().catch(err => {
-            console.warn('Não foi possível entrar em tela cheia:', err);
-        });
+        elem.requestFullscreen().catch(err => { console.warn(err); });
     }
 };
 
 window.sairVisualizacao = function() {
     document.body.classList.remove('modo-visualizacao');
 
-    // Se não estiver logado, volta para a tela de login
     if (!usuarioAtual) {
         document.getElementById('tabelas').innerHTML = '';
         mostrarTelaLogin();
     } else {
-        // Se estiver logado, devolve o contenteditable para as células
         document.querySelectorAll('[data-editavel-original="true"]').forEach(el => {
             el.contentEditable = 'true';
             delete el.dataset.editavelOriginal;
@@ -412,9 +373,7 @@ window.sairVisualizacao = function() {
     }
 
     if (document.fullscreenElement) {
-        document.exitFullscreen().catch(err => {
-            console.warn('Erro ao sair da tela cheia:', err);
-        });
+        document.exitFullscreen().catch(err => { console.warn(err); });
     }
 };
 
@@ -430,23 +389,41 @@ document.addEventListener('fullscreenchange', () => {
     }
 });
 
-// ===== INICIALIZAÇÃO =====
+function aplicarDadosVisualizacao(dados) {
+    document.querySelectorAll('td[data-id], .data-dia[data-id]').forEach(celula => {
+        const id = celula.dataset.id;
+        const dado = dados[id];
+        const ehData = celula.dataset.tipo === 'data';
+        celula.classList.remove('bloqueada', 'admin-pode-editar');
+
+        if (dado && dado.conteudo) {
+            celula.textContent = dado.conteudo;
+        } else {
+            if (ehData) {
+                const match = id.match(/data_dia(\d+)$/);
+                if (match) {
+                    const idx = parseInt(match[1]);
+                    celula.textContent = '📅 ' + (DATAS[idx] || '');
+                }
+            } else {
+                celula.textContent = '';
+            }
+        }
+        celula.contentEditable = 'false';
+    });
+}
+
 async function iniciar() {
     atualizarStatus("🔐 Conecte-se com sua conta Google", "offline");
-
     onAuthStateChanged(auth, async (user) => {
-        if (user) {
-            await verificarAcesso(user);
-        } else {
-            mostrarTelaLogin();
-        }
+        if (user) { await verificarAcesso(user); }
+        else { mostrarTelaLogin(); }
     });
 }
 
 async function verificarAcesso(user) {
     try {
         atualizarStatus("🔐 Verificando acesso...", "offline");
-
         const docRef = doc(db, "allowlist", user.email);
         const docSnap = await getDoc(docRef);
 
@@ -463,54 +440,50 @@ async function verificarAcesso(user) {
                 atualizarStatus("✅ Conectado — você pode adicionar em células vazias e editar as que criou", "online");
             }
 
-            // Limpa a tela (removendo a mensagem de login, se houver)
+            const configSnap = await getDocs(collection(db, "config"));
+            configSnap.forEach(doc => {
+                const chave = doc.id.replace('_totalSemanas', '');
+                totalSemanasPorSala[chave] = doc.data().total || MAX_SEMANAS;
+            });
+            SALAS.forEach(sala => {
+                const chave = `${TURNO}_${sala.id}`;
+                if (totalSemanasPorSala[chave] === undefined) totalSemanasPorSala[chave] = MAX_SEMANAS;
+            });
+
+            const semanasSnap = await getDocs(collection(db, "semanas"));
+            semanasSnap.forEach(doc => { estadosSemanas[doc.id] = doc.data().liberada !== false; });
+
             const container = document.getElementById('tabelas');
             container.innerHTML = '';
+            gerarTabelas();
+            configurarEdicao();
 
-            // Gera as tabelas apenas se ainda não existirem
-            if (container.children.length === 0) {
-                gerarTabelas();
-                configurarEdicao();
-            }
-
-            // ⬇️ MOVER PARA CÁ (depois de gerarTabelas) ⬇️
             if (isAdmin) {
                 const btnAdmin = document.querySelector('.btn-admin');
                 if (btnAdmin) btnAdmin.style.display = 'inline-block';
-
                 document.querySelectorAll('.btn-limpar-tabela').forEach(b => b.style.display = 'inline-block');
                 document.querySelectorAll('.btn-limpar-semana').forEach(b => b.style.display = 'inline-block');
                 document.querySelectorAll('.btn-toggle-semana').forEach(b => b.style.display = 'inline-block');
+                document.querySelectorAll('.btn-apagar-semana').forEach(b => b.style.display = 'inline-block');
+                document.querySelectorAll('.btn-adicionar-semana').forEach(b => b.style.display = 'inline-block');
             }
 
-            // Carrega estado das semanas PRIMEIRO
-            await carregarEstadoSemanas();
-
-            // Carrega os dados das células
             const snapshot = await getDocs(collection(db, "celulas"));
             const dados = {};
             snapshot.forEach(doc => { dados[doc.id] = doc.data(); });
             aplicarDados(dados);
 
-            // Escuta mudanças (só se ainda não estiver ouvindo)
             ouvirMudancas();
 
         } else {
-            // Não autorizado — desloga automaticamente e volta pra tela de login
             console.warn("E-mail não autorizado:", user.email);
             atualizarStatus("❌ Seu e-mail não está autorizado. Escolha outra conta.", "offline");
-
-            // Desloga o usuário atual
             await signOut(auth);
-
-            // Mostra a tela de login para ele escolher outra conta
             mostrarTelaLogin();
         }
     } catch (erro) {
         console.error("Erro ao verificar acesso:", erro);
         atualizarStatus("❌ Erro ao verificar acesso. Escolha uma conta.", "offline");
-
-        // Em caso de erro, desloga e volta pra tela de login
         try { await signOut(auth); } catch (e) {}
         mostrarTelaLogin();
     }
@@ -530,7 +503,7 @@ function mostrarTelaLogin() {
     document.getElementById('btnLogin').style.display = 'none';
     document.getElementById('btnLogout').style.display = 'none';
 }
-// ===== PAINEL ADMIN =====
+
 window.abrirPainelAdmin = async function() {
     if (!isAdmin) return;
     document.getElementById('painel-admin').style.display = 'block';
@@ -573,45 +546,29 @@ async function carregarListaEmails() {
 window.adicionarEmail = async function() {
     const input = document.getElementById('novo-email');
     const email = input.value.trim().toLowerCase();
-
-    if (!email || !email.includes('@')) {
-        alert('Digite um e-mail válido.');
-        return;
-    }
-
+    if (!email || !email.includes('@')) { alert('Digite um e-mail válido.'); return; }
     try {
         await setDoc(doc(db, "allowlist", email), {
-            email: email,
-            addedAt: new Date().toISOString(),
-            addedBy: EMAIL_ADMIN
+            email: email, addedAt: new Date().toISOString(), addedBy: EMAIL_ADMIN
         });
         input.value = '';
         await carregarListaEmails();
-    } catch (e) {
-        console.error(e);
-        alert('Erro ao adicionar e-mail.');
-    }
+    } catch (e) { console.error(e); alert('Erro ao adicionar e-mail.'); }
 };
 
 window.removerEmail = async function(email) {
     if (!confirm(`Remover o acesso de ${email}?`)) return;
-
     try {
         await deleteDoc(doc(db, "allowlist", email));
         await carregarListaEmails();
-    } catch (e) {
-        console.error(e);
-        alert('Erro ao remover e-mail.');
-    }
+    } catch (e) { console.error(e); alert('Erro ao remover e-mail.'); }
 };
 
-// Limita o número de caracteres por célula
 document.addEventListener('input', (e) => {
     if (e.target.matches('td[contenteditable="true"]')) {
         const MAX = 20;
         if (e.target.textContent.length > MAX) {
             e.target.textContent = e.target.textContent.slice(0, MAX);
-            // Coloca o cursor no final
             const range = document.createRange();
             const sel = window.getSelection();
             range.selectNodeContents(e.target);
@@ -621,92 +578,59 @@ document.addEventListener('input', (e) => {
         }
     }
 });
-// ===== ATUALIZAÇÃO AUTOMÁTICA DA TABELA INTEIRA =====
+
 async function atualizarTabelaInteira(celulaEditada) {
     const id = celulaEditada.dataset.id;
-
-    // Extrai a data digitada (remove o emoji 📅 e espaços)
     const texto = celulaEditada.textContent.replace('📅', '').trim();
-
-    // Interpreta a data
     const dataEditada = parseData(texto);
-    if (!dataEditada) {
-        console.warn('Não consegui interpretar a data:', texto);
-        return;
-    }
+    if (!dataEditada) return;
 
-    // Descobre o turno, a sala, o bloco (semana) e o dia da semana editado
     const match = id.match(/^(manha|tarde)_([a-z-]+)_bloco(\d+)_data_dia(\d+)$/);
     if (!match) return;
 
     const turno = match[1];
     const sala = match[2];
-    const diaEditado = parseInt(match[4]);   // 0=Seg, 1=Ter, 2=Qua, 3=Qui, 4=Sex
+    const diaEditado = parseInt(match[4]);
 
-    // Calcula a data da Segunda-feira da semana do dia editado
-    const segundaDaSemanaEditada = new Date(dataEditada);
-    segundaDaSemanaEditada.setDate(segundaDaSemanaEditada.getDate() - diaEditado);
+    const segunda = new Date(dataEditada);
+    segunda.setDate(segunda.getDate() - diaEditado);
 
-    // Agora calcula TODAS as 20 datas a partir dessa Segunda
     const todasDatas = [];
-    let dataAtual = new Date(segundaDaSemanaEditada);
+    let dataAtual = new Date(segunda);
 
-    for (let semana = 0; semana < 4; semana++) {
-        for (let dia = 0; dia < 5; dia++) {
+    for (let s = 0; s < 4; s++) {
+        for (let d = 0; d < 5; d++) {
             todasDatas.push(new Date(dataAtual));
             dataAtual.setDate(dataAtual.getDate() + 1);
-
-            // Pula sábado (6) e domingo (0)
             while (dataAtual.getDay() === 0 || dataAtual.getDay() === 6) {
                 dataAtual.setDate(dataAtual.getDate() + 1);
             }
         }
     }
 
-    // Salva todas as 20 datas no Firestore
     for (let i = 0; i < todasDatas.length; i++) {
         const semana = Math.floor(i / 5);
         const dia = i % 5;
-
         const dataId = `${turno}_${sala}_bloco${semana}_data_dia${dia}`;
-        const docRef = doc(db, "celulas", dataId);
         const valor = '📅 ' + formatarData(todasDatas[i]);
-
         try {
-            await setDoc(docRef, {
-                conteudo: valor,
-                dono: usuarioAtual,
-                turno: turno,
-                sala: sala,
-                bloco: semana
+            await setDoc(doc(db, "celulas", dataId), {
+                conteudo: valor, dono: usuarioAtual, turno, sala, bloco: semana
             }, { merge: true });
-        } catch (e) {
-            console.error("Erro ao atualizar data:", e);
-        }
+        } catch (e) { console.error(e); }
     }
-
-    console.log(`✅ Tabela "${sala}" (${turno}) atualizada com ${todasDatas.length} datas.`);
 }
 
-// ===== HELPERS DE DATA =====
 function parseData(texto) {
-    // Aceita: "28/09", "28/09/2025", "28-09", "28-09-2025"
     const limpo = texto.replace(/[^\d\/-]/g, '');
     const partes = limpo.split(/[\/-]/);
-
     if (partes.length < 2) return null;
-
     const dia = parseInt(partes[0]);
-    const mes = parseInt(partes[1]) - 1; // mês começa em 0 no JS
+    const mes = parseInt(partes[1]) - 1;
     const ano = partes[2] ? parseInt(partes[2]) : new Date().getFullYear();
-
     if (isNaN(dia) || isNaN(mes) || isNaN(ano)) return null;
-
     const data = new Date(ano, mes, dia);
-
-    // Valida se a data é válida
     if (isNaN(data.getTime())) return null;
-
     return data;
 }
 
@@ -716,167 +640,174 @@ function formatarData(d) {
     return `${dia}/${mes}`;
 }
 
-// ===== LIMPAR TABELA / SEMANA =====
 async function limparTabela(salaId) {
-    const confirmar = confirm(`⚠️ Limpar TODAS as células da tabela "${salaId}"?\n\nIsso apaga as 4 semanas (dias e datas). Continuar?`);
-    if (!confirmar) return;
-
+    if (!confirm(`⚠️ Limpar TODAS as células da tabela "${salaId}"?`)) return;
     const prefixo = `${TURNO}_${salaId}_`;
-    let apagados = 0;
-
     try {
         const snapshot = await getDocs(collection(db, "celulas"));
-
-        for (const docSnap of snapshot.docs) {
-            if (docSnap.id.startsWith(prefixo)) {
-                await deleteDoc(doc(db, "celulas", docSnap.id));
-                apagados++;
-            }
+        for (const d of snapshot.docs) {
+            if (d.id.startsWith(prefixo)) await deleteDoc(doc(db, "celulas", d.id));
         }
-
-        console.log(`✅ ${apagados} células apagadas da tabela ${salaId}.`);
-    } catch (e) {
-        console.error("Erro ao limpar tabela:", e);
-        alert("Erro ao limpar tabela. Veja o console.");
-    }
+    } catch (e) { console.error(e); alert("Erro ao limpar tabela."); }
 }
 
 async function limparSemana(salaId, bloco) {
-    const confirmar = confirm(`⚠️ Limpar a Semana ${bloco + 1} da tabela "${salaId}"?\n\nIsso apaga todas as células dessa semana. Continuar?`);
-    if (!confirmar) return;
-
+    if (!confirm(`⚠️ Limpar a Semana ${bloco + 1} da tabela "${salaId}"?`)) return;
     const prefixo = `${TURNO}_${salaId}_bloco${bloco}_`;
-    let apagados = 0;
-
     try {
         const snapshot = await getDocs(collection(db, "celulas"));
-
-        for (const docSnap of snapshot.docs) {
-            if (docSnap.id.startsWith(prefixo)) {
-                await deleteDoc(doc(db, "celulas", docSnap.id));
-                apagados++;
-            }
+        for (const d of snapshot.docs) {
+            if (d.id.startsWith(prefixo)) await deleteDoc(doc(db, "celulas", d.id));
         }
-
-        console.log(`✅ ${apagados} células apagadas da Semana ${bloco + 1} (${salaId}).`);
-    } catch (e) {
-        console.error("Erro ao limpar semana:", e);
-        alert("Erro ao limpar semana. Veja o console.");
-    }
+    } catch (e) { console.error(e); alert("Erro ao limpar semana."); }
 }
 
-// ===== LIBERAR / BLOQUEAR SEMANA =====
 async function toggleSemana(sala, bloco) {
     const semanaId = `${TURNO}_${sala}_bloco${bloco}`;
     const docRef = doc(db, "semanas", semanaId);
-
     try {
         const docSnap = await getDoc(docRef);
         let liberada = true;
-
-        if (docSnap.exists()) {
-            liberada = docSnap.data().liberada !== false;
-        }
-
+        if (docSnap.exists()) liberada = docSnap.data().liberada !== false;
         const novoEstado = !liberada;
-
         await setDoc(docRef, {
             liberada: novoEstado,
             atualizadoEm: new Date().toISOString(),
             atualizadoPor: EMAIL_ADMIN
         }, { merge: true });
-
-        // Atualiza em memória
         estadosSemanas[semanaId] = novoEstado;
         atualizarUISemana(sala, bloco, novoEstado);
-
-        // Re-aplica dados para atualizar bloqueio visual
         const snapshot = await getDocs(collection(db, "celulas"));
         const dados = {};
         snapshot.forEach(doc => { dados[doc.id] = doc.data(); });
         aplicarDados(dados);
-    } catch (e) {
-        console.error("Erro ao alternar semana:", e);
-        alert("Erro ao alterar o estado da semana.");
-    }
+    } catch (e) { console.error(e); alert("Erro ao alternar semana."); }
 }
 
 function atualizarUISemana(sala, bloco, liberada) {
     const btn = document.querySelector(`.btn-toggle-semana[data-sala="${sala}"][data-bloco="${bloco}"]`);
-
     if (!btn) return;
-
     if (liberada) {
         btn.textContent = '🔓 Liberada';
-        btn.style.background = '#2e7d32';  // verde
+        btn.style.background = '#2e7d32';
     } else {
         btn.textContent = '🔒 Bloqueada';
-        btn.style.background = '#c62828';  // vermelho
-    }
-}
-
-async function carregarEstadoSemanas() {
-    try {
-        const snapshot = await getDocs(collection(db, "semanas"));
-
-        snapshot.forEach(doc => {
-            estadosSemanas[doc.id] = doc.data().liberada !== false;
-        });
-
-        // Aplica em todos os blocos
-        document.querySelectorAll('.btn-toggle-semana').forEach(btn => {
-            const sala = btn.dataset.sala;
-            const bloco = parseInt(btn.dataset.bloco);
-            const semanaId = `${TURNO}_${sala}_bloco${bloco}`;
-            const liberada = estadosSemanas[semanaId] !== false;
-
-            atualizarUISemana(sala, bloco, liberada);
-        });
-    } catch (e) {
-        console.error("Erro ao carregar estados das semanas:", e);
+        btn.style.background = '#c62828';
     }
 }
 
 function isSemanaLiberada(celulaId) {
     const match = celulaId.match(/^(manha|tarde)_([a-z-]+)_bloco(\d+)_/);
     if (!match) return true;
-
     const semanaId = `${match[1]}_${match[2]}_bloco${match[3]}`;
-
-    // Se o estado ainda não foi carregado, assume LIBERADA (default)
     if (estadosSemanas[semanaId] === undefined) return true;
-
-    // Retorna o estado real
     return estadosSemanas[semanaId] === true;
 }
 
-// ===== APLICAR DADOS EM MODO VISUALIZAÇÃO =====
-function aplicarDadosVisualizacao(dados) {
-    document.querySelectorAll('td[data-id], .data-dia[data-id]').forEach(celula => {
-        const id = celula.dataset.id;
-        const dado = dados[id];
-        const ehData = celula.dataset.tipo === 'data';
+async function adicionarSemana(salaId) {
+    const chave = `${TURNO}_${salaId}`;
+    const totalAtual = totalSemanasPorSala[chave] || MAX_SEMANAS;
 
-        celula.classList.remove('bloqueada', 'admin-pode-editar');
+    if (totalAtual >= MAX_SEMANAS) {
+        alert(`⚠️ Só é possível ${MAX_SEMANAS} semanas por tabela.\nApague uma semana antes de adicionar outra.`);
+        return;
+    }
 
-        if (dado && dado.conteudo) {
-            celula.textContent = dado.conteudo;
-        } else {
-            // Se não tem dado, mostra o padrão
-            if (ehData) {
-                const match = id.match(/data_dia(\d+)$/);
-                if (match) {
-                    const idx = parseInt(match[1]);
-                    celula.textContent = '📅 ' + (DATAS[idx] || '');
-                }
-            } else {
-                celula.textContent = '';
+    const novoTotal = totalAtual + 1;
+
+    try {
+        await setDoc(doc(db, "config", `${chave}_totalSemanas`), {
+            total: novoTotal, atualizadoEm: new Date().toISOString()
+        }, { merge: true });
+
+        await setDoc(doc(db, "semanas", `${TURNO}_${salaId}_bloco${totalAtual}`), {
+            liberada: true, atualizadoEm: new Date().toISOString(), atualizadoPor: EMAIL_ADMIN
+        }, { merge: true });
+
+        totalSemanasPorSala[chave] = novoTotal;
+        const container = document.getElementById('tabelas');
+        container.innerHTML = '';
+        gerarTabelas();
+        configurarEdicao();
+        if (isAdmin) {
+            document.querySelectorAll('.btn-limpar-tabela').forEach(b => b.style.display = 'inline-block');
+            document.querySelectorAll('.btn-limpar-semana').forEach(b => b.style.display = 'inline-block');
+            document.querySelectorAll('.btn-toggle-semana').forEach(b => b.style.display = 'inline-block');
+            document.querySelectorAll('.btn-apagar-semana').forEach(b => b.style.display = 'inline-block');
+            document.querySelectorAll('.btn-adicionar-semana').forEach(b => b.style.display = 'inline-block');
+        }
+        const snapshot = await getDocs(collection(db, "celulas"));
+        const dados = {};
+        snapshot.forEach(doc => { dados[doc.id] = doc.data(); });
+        aplicarDados(dados);
+    } catch (e) { console.error(e); alert("Erro ao adicionar semana."); }
+}
+async function apagarSemana(salaId, bloco, totalAtual) {
+    if (totalAtual <= MIN_SEMANAS) {
+        alert(`⚠️ É necessário manter ao menos ${MIN_SEMANAS} semana por tabela.`);
+        return;
+    }
+
+    if (!confirm(`⚠️ Apagar a Semana ${bloco + 1} da tabela "${salaId}"?\n\nOs dados serão apagados e as semanas seguintes vão subir uma posição.`)) return;
+
+    const chave = `${TURNO}_${salaId}`;
+
+    try {
+        const prefixoApagar = `${TURNO}_${salaId}_bloco${bloco}_`;
+        const snapshot = await getDocs(collection(db, "celulas"));
+        const docsApagar = snapshot.docs.filter(d => d.id.startsWith(prefixoApagar));
+        for (const d of docsApagar) await deleteDoc(doc(db, "celulas", d.id));
+
+        await deleteDoc(doc(db, "semanas", `${TURNO}_${salaId}_bloco${bloco}`));
+
+        for (let i = bloco; i < totalAtual - 1; i++) {
+            const origem = `${TURNO}_${salaId}_bloco${i + 1}_`;
+            const destino = `${TURNO}_${salaId}_bloco${i}_`;
+            const docsMover = snapshot.docs.filter(d => d.id.startsWith(origem));
+            for (const d of docsMover) {
+                const novoId = d.id.replace(origem, destino);
+                const dados = d.data();
+                dados.bloco = i;
+                await setDoc(doc(db, "celulas", novoId), dados);
+                await deleteDoc(doc(db, "celulas", d.id));
+            }
+            
+            const estadoAntigo = await getDoc(doc(db, "semanas", `${TURNO}_${salaId}_bloco${i + 1}`));
+            if (estadoAntigo.exists()) {
+                await setDoc(doc(db, "semanas", `${TURNO}_${salaId}_bloco${i}`), estadoAntigo.data());
+                await deleteDoc(doc(db, "semanas", `${TURNO}_${salaId}_bloco${i + 1}`));
             }
         }
 
-        // Em modo visualização, nada é editável
-        celula.contentEditable = 'false';
-    });
+        const novoTotal = totalAtual - 1;
+        await setDoc(doc(db, "config", `${chave}_totalSemanas`), {
+            total: novoTotal, atualizadoEm: new Date().toISOString()
+        }, { merge: true });
+
+        totalSemanasPorSala[chave] = novoTotal;
+
+        const container = document.getElementById('tabelas');
+        container.innerHTML = '';
+        gerarTabelas();
+        configurarEdicao();
+        
+        if (isAdmin) {
+            document.querySelectorAll('.btn-limpar-tabela').forEach(b => b.style.display = 'inline-block');
+            document.querySelectorAll('.btn-limpar-semana').forEach(b => b.style.display = 'inline-block');
+            document.querySelectorAll('.btn-toggle-semana').forEach(b => b.style.display = 'inline-block');
+            document.querySelectorAll('.btn-apagar-semana').forEach(b => b.style.display = 'inline-block');
+            document.querySelectorAll('.btn-adicionar-semana').forEach(b => b.style.display = 'inline-block');
+        }
+        
+        const snapAtualizado = await getDocs(collection(db, "celulas"));
+        const dados = {};
+        snapAtualizado.forEach(doc => { dados[doc.id] = doc.data(); });
+        aplicarDados(dados);
+
+    } catch (e) {
+        console.error(e);
+        alert("Erro ao apagar semana.");
+    }
 }
 
 iniciar();
