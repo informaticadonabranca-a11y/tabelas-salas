@@ -136,7 +136,16 @@ function gerarTabelas() {
         btnAdd.className = 'btn-adicionar-semana';
         btnAdd.dataset.sala = sala.id;
         btnAdd.textContent = '➕ Adicionar Semana';
-        btnAdd.style.cssText = 'display:none; margin-top:15px; padding:10px 20px; background:#2e7d32; color:white; border:none; border-radius:5px; cursor:pointer; font-weight:bold; font-size:13px; width:100%;';
+
+        // 🎨 Cor do botão conforme a sala
+        const coresPorSala = {
+            'sala-informatica': '#1565c0',  // Azul
+            'multiuso':         '#2e7d32',  // Verde
+            'itinerante':       '#6a1b9a'   // Roxo
+        };
+        const corBotao = coresPorSala[sala.id] || '#2e7d32';
+
+        btnAdd.style.cssText = `display:none; margin-top:15px; padding:10px 20px; background:${corBotao}; color:white; border:none; border-radius:5px; cursor:pointer; font-weight:bold; font-size:13px; width:100%;`;
         btnAdd.onclick = () => adicionarSemana(sala.id);
         div.appendChild(btnAdd);
 
