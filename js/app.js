@@ -43,12 +43,14 @@ let isAdmin = false;
 let estadosSemanas = {};
 let totalSemanasPorSala = {};
 
+// 🆕 Limite de reservas do usuário logado (null = sem limite / admin)
+// Lido junto do getDoc(allowlist) no login — 0 leituras extras.
+let limiteReservas = null;
+
 // 🆕 CACHE LOCAL — guarda o último estado recebido pelo onSnapshot de células.
-// Usado por ações admin para re-renderizar SEM reler o banco.
 let dadosCelulas = {};
+
 // 🆕 Helper — retorna os IDs de dadosCelulas que começam com um prefixo.
-// Usado pelas ações de limpar/apagar para descobrir o que deletar
-// SEM fazer getDocs (economia de leituras).
 function idsComPrefixo(prefixo) {
     return Object.keys(dadosCelulas).filter(id => id.startsWith(prefixo));
 }
@@ -58,6 +60,62 @@ function atualizarStatus(texto, tipo) {
     el.textContent = texto;
     el.className = 'status ' + tipo;
 }
+
+// ============================================================
+// 🆕 CONTROLE DE LIMITE DE RESERVAS
+// Regra: limite por (turno + bloco/semana), independente entre turnos.
+// Contagem 100% em memória (dadosCelulas) — 0 leituras.
+// ============================================================
+
+// Conta reservas do usuário atual agrupadas por bloco (semana).
+// Filtra: só células do turno atual, ignora datas, só do próprio usuário.
+function contarReservasPorBloco() {
+    const contagem = {}; // { 0: 3, 1: 5, ... }
+    if (!usuarioAtual) return contagem;
+
+    const prefixoTurno = `${TURNO}_`;
+    for (const id in dadosCelulas) {
+        if (!id.startsWith(prefixoTurno)) continue;
+        if (id.includes('_data_dia')) continue;         // ignora células de data
+        const d = dadosCelulas[id];
+        if (!d || d.dono !== usuarioAtual) continue;    // só do próprio usuário
+        const m = id.match(/_bloco(\d+)_/);
+        if (!m) continue;
+        const bloco = parseInt(m[1]);
+        contagem[bloco] = (contagem[bloco] || 0) + 1;
+    }
+    return contagem;
+}
+
+// Verifica se o usuário pode criar uma nova reserva no bloco informado.
+function podeCriarReservaNoBloco(bloco) {
+    if (isAdmin) return true;
+    if (limiteReservas === null) return true;           // sem limite
+    const contagem = contarReservasPorBloco();
+    return (contagem[bloco] || 0) < limiteReservas;
+}
+
+// Monta o texto de status com o uso por semana (apenas professor com limite).
+function textoStatusComLimite() {
+    if (isAdmin || limiteReservas === null) return null;
+    const contagem = contarReservasPorBloco();
+    const totalBlocos = 4;
+    const partes = [];
+    for (let b = 0; b < totalBlocos; b++) {
+        const usadas = contagem[b] || 0;
+        partes.push(`Sem ${b + 1}: ${usadas}/${limiteReservas}`);
+    }
+    return `✅ Conectado — ${partes.join(' • ')}`;
+}
+
+// Atualiza o status do professor (chamado após login e a cada onSnapshot).
+function atualizarStatusLimite() {
+    if (isAdmin) return;
+    const txt = textoStatusComLimite();
+    if (txt) atualizarStatus(txt, 'online');
+}
+
+// ============================================================
 
 function gerarTabelas() {
     const container = document.getElementById('tabelas');
@@ -162,6 +220,7 @@ function gerarTabelas() {
         container.appendChild(div);
     });
 }
+
 function aplicarDados(dados) {
     document.querySelectorAll('td[data-id], .data-dia[data-id]').forEach(celula => {
         const id = celula.dataset.id;
@@ -237,6 +296,23 @@ async function salvarCelula(celula) {
     const sala = match[2];
     const bloco = parseInt(match[3]);
 
+    // 🆕 Detecção de CRIAÇÃO (célula estava vazia no cache e agora tem conteúdo)
+    // Usa o cache em memória — 0 leituras.
+    const jaExistia = !!dadosCelulas[id];
+    const ehCriacao = !jaExistia && conteudo !== '';
+
+    // 🆕 Bloqueia criação se o limite semanal do bloco foi atingido
+    if (ehCriacao && !podeCriarReservaNoBloco(bloco)) {
+        const usadas = (contarReservasPorBloco()[bloco] || 0);
+        alert(
+            `⚠️ Limite atingido na Semana ${bloco + 1}.\n\n` +
+            `Você já tem ${usadas} de ${limiteReservas} reserva(s) nesta semana neste turno.\n` +
+            `Apague uma reserva sua nesta semana ou fale com o administrador.`
+        );
+        celula.textContent = conteudoOriginal;   // reverte
+        return;
+    }
+
     try {
         const docRef = doc(db, "celulas", id);
         if (conteudo === '') {
@@ -308,6 +384,8 @@ function ouvirMudancas() {
         dadosCelulas = {};
         snapshot.forEach(doc => { dadosCelulas[doc.id] = doc.data(); });
         aplicarDados(dadosCelulas);
+        // 🆕 Atualiza contador de limite no status (0 leituras — só memória)
+        atualizarStatusLimite();
     },
     (erro) => {
         console.error("Listener de células caiu:", erro);
@@ -316,7 +394,6 @@ function ouvirMudancas() {
 );
 
     // Snapshot de semanas — atualiza UI de bloqueio/liberação.
-    // 🆕 NÃO faz mais getDocs(celulas) dentro. Só reaplica dadosCelulas.
     if (unsubscribeSemanas) unsubscribeSemanas();
     unsubscribeSemanas = onSnapshot(collection(db, "semanas"), (snapshot) => {
         snapshot.forEach(doc => {
@@ -331,8 +408,9 @@ function ouvirMudancas() {
             atualizarUISemana(sala, bloco, liberada);
         });
 
-        // 🆕 Reaplica os dados que já estão em memória (não lê o banco).
         aplicarDados(dadosCelulas);
+        // 🆕 Recalcula status de limite (0 leituras)
+        atualizarStatusLimite();
     });
 }
 
@@ -470,6 +548,12 @@ async function verificarAcesso(user) {
             usuarioAtual = user.uid;
             isAdmin = (user.email === EMAIL_ADMIN);
 
+            // 🆕 Lê o limite do MESMO doc da allowlist (já lido acima — 0 leituras extras)
+            const dadosAllow = docSnap.data() || {};
+            limiteReservas = (typeof dadosAllow.limiteReservas === 'number' && dadosAllow.limiteReservas > 0)
+                ? dadosAllow.limiteReservas
+                : null;
+
             document.getElementById('btnLogin').style.display = 'none';
             document.getElementById('btnLogout').style.display = 'inline-block';
 
@@ -510,11 +594,14 @@ async function verificarAcesso(user) {
             // Carga inicial única — depois disso, quem mantém os dados atualizados
             // é o onSnapshot de ouvirMudancas().
             const snapshot = await getDocs(collection(db, "celulas"));
-            dadosCelulas = {};                                  // 🆕
+            dadosCelulas = {};
             snapshot.forEach(doc => { dadosCelulas[doc.id] = doc.data(); });
             aplicarDados(dadosCelulas);
 
             ouvirMudancas();
+
+            // 🆕 Mostra contador de limite no status (professor com limite)
+            atualizarStatusLimite();
 
         } else {
             console.warn("E-mail não autorizado:", user.email);
@@ -569,11 +656,20 @@ async function carregarListaEmails() {
         let html = '';
         snapshot.forEach(doc => {
             const email = doc.id;
+            const dados = doc.data() || {};
             const ehAdmin = (email === EMAIL_ADMIN);
+            const limite = dados.limiteReservas ?? 0;
             html += `
-                <div style="display:flex; justify-content:space-between; align-items:center; padding:8px; border-bottom:1px solid #eee;">
-                    <span>${email} ${ehAdmin ? '👑' : ''}</span>
-                    ${!ehAdmin ? `<button onclick="removerEmail('${email}')" style="padding:4px 10px; background:#c62828; color:white; border:none; border-radius:3px; cursor:pointer; font-size:12px;">Remover</button>` : ''}
+                <div style="display:flex; justify-content:space-between; align-items:center; padding:8px; border-bottom:1px solid #eee; gap:8px; flex-wrap:wrap;">
+                    <span style="flex:1; min-width:140px; overflow:hidden; text-overflow:ellipsis;">${email} ${ehAdmin ? '👑' : ''}</span>
+                    ${!ehAdmin ? `
+                        <label style="font-size:12px; color:#555; white-space:nowrap;">Limite:</label>
+                        <input type="number" min="0" value="${limite}"
+                               onchange="salvarLimite('${email}', this.value)"
+                               style="width:70px; padding:4px 6px; border:1px solid #ccc; border-radius:3px; font-size:12px;"
+                               title="0 = sem limite">
+                        <button onclick="removerEmail('${email}')" style="padding:4px 10px; background:#c62828; color:white; border:none; border-radius:3px; cursor:pointer; font-size:12px;">Remover</button>
+                    ` : `<span style="font-size:12px; color:#999;">sem limite</span>`}
                 </div>
             `;
         });
@@ -583,6 +679,26 @@ async function carregarListaEmails() {
         container.innerHTML = '<p style="color:red;">Erro ao carregar lista.</p>';
     }
 }
+
+// 🆕 Salva o limite de reservas de um e-mail (apenas admin). 0 = sem limite.
+window.salvarLimite = async function(email, valor) {
+    if (!isAdmin) return;
+    const n = parseInt(valor, 10);
+    if (isNaN(n) || n < 0) { alert('Valor inválido.'); return; }
+    try {
+        // merge: true preserva email/addedAt/addedBy
+        await setDoc(doc(db, "allowlist", email), {
+            limiteReservas: n === 0 ? null : n
+        }, { merge: true });
+        // feedback visual rápido
+        const el = document.getElementById('lista-emails');
+        if (el) el.style.boxShadow = '0 0 0 2px #2e7d32';
+        setTimeout(() => { if (el) el.style.boxShadow = ''; }, 600);
+    } catch (e) {
+        console.error(e);
+        alert('Erro ao salvar limite.');
+    }
+};
 
 window.adicionarEmail = async function() {
     const input = document.getElementById('novo-email');
@@ -619,6 +735,7 @@ document.addEventListener('input', (e) => {
         }
     }
 });
+
 async function atualizarTabelaInteira(celulaEditada) {
     const id = celulaEditada.dataset.id;
     const texto = celulaEditada.textContent.replace('📅', '').trim();
@@ -687,7 +804,7 @@ async function limparTabela(salaId) {
     const ids = idsComPrefixo(prefixo);
     if (ids.length === 0) return;
 
-    const CHUNK = 400; // Firestore limita ~500 ops por batch
+    const CHUNK = 400;
     try {
         for (let i = 0; i < ids.length; i += CHUNK) {
             const batch = writeBatch(db);
@@ -700,7 +817,6 @@ async function limparTabela(salaId) {
     } catch (e) {
         console.error(e);
         alert("Erro ao limpar tabela. Tente novamente.");
-        // Reaplica dados atuais para o admin ver o estado real
         aplicarDados(dadosCelulas);
     }
 }
@@ -732,7 +848,6 @@ async function toggleSemana(sala, bloco) {
     const semanaId = `${TURNO}_${sala}_bloco${bloco}`;
     const docRef = doc(db, "semanas", semanaId);
 
-    // Usa estado em memória — 0 leituras
     const liberadaAtual = estadosSemanas[semanaId] !== false;
     const novoEstado = !liberadaAtual;
 
@@ -804,7 +919,6 @@ async function adicionarSemana(salaId) {
             document.querySelectorAll('.btn-apagar-semana').forEach(b => b.style.display = 'inline-block');
             document.querySelectorAll('.btn-adicionar-semana').forEach(b => b.style.display = 'inline-block');
         }
-        // 🆕 NÃO faz getDocs. Reaplica dadosCelulas em memória.
         aplicarDados(dadosCelulas);
     } catch (e) { console.error(e); alert("Erro ao adicionar semana."); }
 }
@@ -823,15 +937,12 @@ async function apagarSemana(salaId, bloco, totalAtual) {
     const chave = `${TURNO}_${salaId}`;
 
     try {
-        // ---------- 1) Calcular tudo em memória (0 leituras) ----------
-        const operacoesSet = []; // { id, dados }
-        const operacoesDel = []; // id
+        const operacoesSet = [];
+        const operacoesDel = [];
 
-        // Apagar o bloco alvo
         idsComPrefixo(`${TURNO}_${salaId}_bloco${bloco}_`)
             .forEach(id => operacoesDel.push(id));
 
-        // Mover blocos seguintes "para cima"
         for (let i = bloco + 1; i < totalAtual; i++) {
             const prefixoOrigem  = `${TURNO}_${salaId}_bloco${i}_`;
             const prefixoDestino = `${TURNO}_${salaId}_bloco${i - 1}_`;
@@ -845,7 +956,6 @@ async function apagarSemana(salaId, bloco, totalAtual) {
 
         const CHUNK = 400;
 
-        // ---------- 2) SETs primeiro (para não perder nada) ----------
         for (let i = 0; i < operacoesSet.length; i += CHUNK) {
             const batch = writeBatch(db);
             operacoesSet.slice(i, i + CHUNK).forEach(op =>
@@ -854,7 +964,6 @@ async function apagarSemana(salaId, bloco, totalAtual) {
             await batch.commit();
         }
 
-        // ---------- 3) DELs depois ----------
         for (let i = 0; i < operacoesDel.length; i += CHUNK) {
             const batch = writeBatch(db);
             operacoesDel.slice(i, i + CHUNK).forEach(id =>
@@ -863,7 +972,6 @@ async function apagarSemana(salaId, bloco, totalAtual) {
             await batch.commit();
         }
 
-        // ---------- 4) Mover estados das semanas (0 leituras) ----------
         const bSemanas = writeBatch(db);
         for (let i = bloco + 1; i < totalAtual; i++) {
             const origem  = `${TURNO}_${salaId}_bloco${i}`;
@@ -876,11 +984,9 @@ async function apagarSemana(salaId, bloco, totalAtual) {
             );
             bSemanas.delete(doc(db, "semanas", origem));
         }
-        // Apaga o doc da semana alvo (que ficou "sobrando" no final)
         bSemanas.delete(doc(db, "semanas", `${TURNO}_${salaId}_bloco${totalAtual - 1}`));
         await bSemanas.commit();
 
-        // ---------- 5) Atualizar config ----------
         const novoTotal = totalAtual - 1;
         await setDoc(doc(db, "config", `${chave}_totalSemanas`), {
             total: novoTotal,
@@ -889,7 +995,6 @@ async function apagarSemana(salaId, bloco, totalAtual) {
 
         totalSemanasPorSala[chave] = novoTotal;
 
-        // ---------- 6) Re-render (sem leitura) ----------
         const container = document.getElementById('tabelas');
         container.innerHTML = '';
         gerarTabelas();
