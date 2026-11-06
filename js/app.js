@@ -937,12 +937,15 @@ async function apagarSemana(salaId, bloco, totalAtual) {
     const chave = `${TURNO}_${salaId}`;
 
     try {
-        const operacoesSet = [];
-        const operacoesDel = [];
+        // ---------- 1) Calcular tudo em memória (0 leituras) ----------
+        const operacoesSet = []; 
+        const operacoesDel = []; 
 
+        // Apagar o bloco alvo
         idsComPrefixo(`${TURNO}_${salaId}_bloco${bloco}_`)
             .forEach(id => operacoesDel.push(id));
 
+        // Mover blocos seguintes "para cima"
         for (let i = bloco + 1; i < totalAtual; i++) {
             const prefixoOrigem  = `${TURNO}_${salaId}_bloco${i}_`;
             const prefixoDestino = `${TURNO}_${salaId}_bloco${i - 1}_`;
@@ -956,14 +959,18 @@ async function apagarSemana(salaId, bloco, totalAtual) {
 
         const CHUNK = 400;
 
+        // ---------- 2) SETs primeiro (A BLINDAGEM COMEÇA AQUI) ----------
         for (let i = 0; i < operacoesSet.length; i += CHUNK) {
             const batch = writeBatch(db);
             operacoesSet.slice(i, i + CHUNK).forEach(op =>
                 batch.set(doc(db, "celulas", op.id), op.dados)
             );
-            await batch.commit();
+            // Se o Firebase bloquear por falta de cota, o 'await' abaixo joga o erro
+            // direto para o bloco 'catch' lá embaixo, impedindo os DELETEs.
+            await batch.commit(); 
         }
 
+        // ---------- 3) DELs depois (só roda se os SETs acima deram certo) ----------
         for (let i = 0; i < operacoesDel.length; i += CHUNK) {
             const batch = writeBatch(db);
             operacoesDel.slice(i, i + CHUNK).forEach(id =>
@@ -972,6 +979,7 @@ async function apagarSemana(salaId, bloco, totalAtual) {
             await batch.commit();
         }
 
+        // ---------- 4) Mover estados das semanas (0 leituras) ----------
         const bSemanas = writeBatch(db);
         for (let i = bloco + 1; i < totalAtual; i++) {
             const origem  = `${TURNO}_${salaId}_bloco${i}`;
@@ -987,6 +995,7 @@ async function apagarSemana(salaId, bloco, totalAtual) {
         bSemanas.delete(doc(db, "semanas", `${TURNO}_${salaId}_bloco${totalAtual - 1}`));
         await bSemanas.commit();
 
+        // ---------- 5) Atualizar config ----------
         const novoTotal = totalAtual - 1;
         await setDoc(doc(db, "config", `${chave}_totalSemanas`), {
             total: novoTotal,
@@ -995,6 +1004,7 @@ async function apagarSemana(salaId, bloco, totalAtual) {
 
         totalSemanasPorSala[chave] = novoTotal;
 
+        // ---------- 6) Re-render (só acontece se tudo deu certo) ----------
         const container = document.getElementById('tabelas');
         container.innerHTML = '';
         gerarTabelas();
@@ -1011,8 +1021,10 @@ async function apagarSemana(salaId, bloco, totalAtual) {
         aplicarDados(dadosCelulas);
 
     } catch (e) {
-        console.error(e);
-        alert("Erro ao apagar semana. Tente novamente.");
+        // A MÁGICA ACONTECE AQUI: se qualquer coisa der erro (cota estourada, sem internet),
+        // o código cai neste bloco e AVISA você, em vez de apagar tudo em cascata.
+        console.error("Erro crítico ao apagar semana:", e);
+        alert("🚨 ERRO AO APAGAR: O limite de leituras do Firebase foi atingido ou a conexão caiu.\n\nA operação foi interrompida para evitar perda de dados. Recarregue a página em alguns minutos.");
         aplicarDados(dadosCelulas);
     }
 }
