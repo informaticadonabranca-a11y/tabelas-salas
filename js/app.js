@@ -268,6 +268,15 @@ function gerarTabelas() {
         btnAdd.onclick = () => adicionarSemana(sala.id);
         div.appendChild(btnAdd);
 
+        // 🆕 Botão Apagar Semana (admin)
+        const btnApagar = document.createElement('button');
+        btnApagar.className = 'btn-apagar-semana';
+        btnApagar.dataset.sala = sala.id;
+        btnApagar.textContent = '🗑️ Apagar Semana';
+        btnApagar.style.cssText = 'display:none; margin-top:8px; padding:10px 20px; background:#c62828; color:white; border:none; border-radius:5px; cursor:pointer; font-weight:bold; font-size:13px; width:100%;';
+        btnApagar.onclick = () => apagarSemana(sala.id);
+        div.appendChild(btnApagar);
+
         container.appendChild(div);
     });
 }
@@ -563,6 +572,7 @@ async function verificarAcesso(user) {
                 document.querySelectorAll('.btn-limpar-semana').forEach(b => b.style.display = 'inline-block');
                 document.querySelectorAll('.btn-toggle-semana').forEach(b => b.style.display = 'inline-block');
                 document.querySelectorAll('.btn-adicionar-semana').forEach(b => b.style.display = 'inline-block');
+                document.querySelectorAll('.btn-apagar-semana').forEach(b => b.style.display = 'inline-block');
             }
 
             // Carga inicial única — depois disso, quem mantém os dados atualizados
@@ -900,11 +910,104 @@ async function adicionarSemana(salaId) {
             document.querySelectorAll('.btn-limpar-semana').forEach(b => b.style.display = 'inline-block');
             document.querySelectorAll('.btn-toggle-semana').forEach(b => b.style.display = 'inline-block');
             document.querySelectorAll('.btn-adicionar-semana').forEach(b => b.style.display = 'inline-block');
+            document.querySelectorAll('.btn-apagar-semana').forEach(b => b.style.display = 'inline-block');
         }
         aplicarDados(dadosCelulas);
         // 🆕 Reforça o banner (mudou o total de semanas)
         atualizarAvisoProfessor();
     } catch (e) { console.error(e); alert("Erro ao adicionar semana."); }
+}
+
+// ============================================================
+// 🆕 APAGAR SEMANA (somente admin)
+// Remove a ÚLTIMA semana configurada da sala/turno.
+// - 0 leituras: usa dadosCelulas (cache) + totalSemanasPorSala.
+// - Escritas: 1 setDoc em config + 1 delete em semanas + N deletes
+//   em celulas (batch). Nenhum getDocs.
+// ============================================================
+async function apagarSemana(salaId) {
+    if (!isAdmin) return;
+
+    const chave = `${TURNO}_${salaId}`;
+    const totalAtual = totalSemanasPorSala[chave] || MAX_SEMANAS;
+
+    if (totalAtual <= MIN_SEMANAS) {
+        alert(`⚠️ Não é possível apagar: a tabela precisa ter pelo menos ${MIN_SEMANAS} semana.`);
+        return;
+    }
+
+    const blocoRemover = totalAtual - 1;
+    const nomeSala = SALAS.find(s => s.id === salaId)?.nome || salaId;
+
+    const ok = confirm(
+        `🗑️ Apagar a Semana ${blocoRemover + 1} de "${nomeSala}"?\n\n` +
+        `• Todas as reservas dessa semana serão apagadas.\n` +
+        `• As semanas anteriores permanecem intactas.\n\n` +
+        `Esta ação NÃO pode ser desfeita.`
+    );
+    if (!ok) return;
+
+    const prefixoSemana = `${TURNO}_${salaId}_bloco${blocoRemover}_`;
+    const idsCelulas = idsComPrefixo(prefixoSemana); // do cache — 0 leituras
+
+    try {
+        // 1) Apaga as células em lotes
+        const CHUNK = 400;
+        for (let i = 0; i < idsCelulas.length; i += CHUNK) {
+            const batch = writeBatch(db);
+            idsCelulas.slice(i, i + CHUNK).forEach(id =>
+                batch.delete(doc(db, "celulas", id))
+            );
+            await batch.commit();
+        }
+
+        // 2) Ajusta o total na config
+        const novoTotal = blocoRemover;
+        await setDoc(
+            doc(db, "config", `${chave}_totalSemanas`),
+            { total: novoTotal, atualizadoEm: new Date().toISOString() },
+            { merge: true }
+        );
+
+        // 3) Remove o doc de estado da semana
+        try {
+            await deleteDoc(doc(db, "semanas", `${TURNO}_${salaId}_bloco${blocoRemover}`));
+        } catch (e) {
+            console.warn("Doc de semana não existia:", e);
+        }
+
+        // 4) Atualiza cache local
+        totalSemanasPorSala[chave] = novoTotal;
+        delete estadosSemanas[`${TURNO}_${salaId}_bloco${blocoRemover}`];
+        idsCelulas.forEach(id => delete dadosCelulas[id]);
+
+        // 5) Reconstrói a UI (versão original — reconstrói as 3 salas)
+        reconstruirTabela();
+        atualizarAvisoProfessor();
+    } catch (e) {
+        console.error("Erro ao apagar semana:", e);
+        alert("Erro ao apagar a semana. Tente novamente.");
+        aplicarDados(dadosCelulas);
+    }
+}
+
+// 🆕 Reconstrói as tabelas e reaplica visibilidade dos botões admin
+// (Versão original — reconstrói todas as 3 salas. Custo: apenas DOM local, 0 leituras.)
+function reconstruirTabela() {
+    const container = document.getElementById('tabelas');
+    container.innerHTML = '';
+    gerarTabelas();
+    configurarEdicao();
+
+    if (isAdmin) {
+        document.querySelectorAll('.btn-limpar-tabela').forEach(b => b.style.display = 'inline-block');
+        document.querySelectorAll('.btn-limpar-semana').forEach(b => b.style.display = 'inline-block');
+        document.querySelectorAll('.btn-toggle-semana').forEach(b => b.style.display = 'inline-block');
+        document.querySelectorAll('.btn-adicionar-semana').forEach(b => b.style.display = 'inline-block');
+        document.querySelectorAll('.btn-apagar-semana').forEach(b => b.style.display = 'inline-block');
+    }
+
+    aplicarDados(dadosCelulas);
 }
 
 iniciar();
