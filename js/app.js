@@ -127,6 +127,47 @@ function atualizarStatusLimite() {
 }
 
 // ============================================================
+// 🆕 BANNER INFORMATIVO DO PROFESSOR (rodapé fixo)
+// Mostra o limite real do professor logado — 100% em memória.
+// ============================================================
+function atualizarAvisoProfessor() {
+    const banner = document.getElementById('aviso-professor');
+    const texto  = document.getElementById('aviso-professor-texto');
+    if (!banner || !texto) return;
+
+    // Admin não vê o banner
+    if (isAdmin || !usuarioAtual) {
+        banner.style.display = 'none';
+        document.body.classList.remove('tem-aviso-professor');
+        return;
+    }
+
+    // Monta o texto com o limite real
+    let fraseLimite;
+    if (limiteReservas === null) {
+        fraseLimite = 'você tem <strong>reservas ilimitadas</strong> neste turno';
+    } else {
+        fraseLimite = `você tem <strong>${limiteReservas} ${limiteReservas === 1 ? 'reserva' : 'reservas'} por semana</strong> (por turno)`;
+    }
+
+    texto.innerHTML =
+        'ℹ️ <strong>Como reservar:</strong> ' + fraseLimite +
+        '. Clique em uma célula vazia (amarela) de uma semana liberada e digite o ' +
+        '<strong>nome e a turma</strong> — ex.: <em>Rielle 2A</em>. ' +
+        'Para mais reservas, fale com a <strong>informática</strong>.';
+
+    banner.style.display = 'block';
+    document.body.classList.add('tem-aviso-professor');
+}
+
+// Esconde o banner (usado na tela de login e no logout)
+function esconderAvisoProfessor() {
+    const banner = document.getElementById('aviso-professor');
+    if (banner) banner.style.display = 'none';
+    document.body.classList.remove('tem-aviso-professor');
+}
+
+// ============================================================
 
 function gerarTabelas() {
     const container = document.getElementById('tabelas');
@@ -385,6 +426,7 @@ function configurarEdicao() {
 
 let unsubscribeSnapshot = null;
 let unsubscribeSemanas = null;
+let unsubscribeLimite = null;
 
 function ouvirMudancas() {
     // Snapshot de células — mantém dadosCelulas sempre atualizado em tempo real.
@@ -425,6 +467,22 @@ function ouvirMudancas() {
     });
 }
 
+// 🆕 Listener do limite do próprio professor (tempo real).
+// Se o admin mudar o limite em outra aba, o banner atualiza sozinho.
+// +1 listener — 0 leituras por ação.
+function ouvirLimiteUsuario(email) {
+    if (unsubscribeLimite) unsubscribeLimite();
+    unsubscribeLimite = onSnapshot(doc(db, "allowlist", email), (snap) => {
+        if (!snap.exists()) return;
+        const dados = snap.data() || {};
+        limiteReservas = (typeof dados.limiteReservas === 'number' && dados.limiteReservas > 0)
+            ? dados.limiteReservas
+            : null;
+        atualizarAvisoProfessor();
+        atualizarStatusLimite();
+    });
+}
+
 window.loginGoogle = async function() {
     const provider = new GoogleAuthProvider();
     try { await signInWithPopup(auth, provider); }
@@ -432,8 +490,26 @@ window.loginGoogle = async function() {
 };
 
 window.logoutAdmin = async function() {
-    try { await signOut(auth); location.reload(); }
-    catch (e) { alert("Erro ao sair: " + e.message); }
+    try {
+        if (unsubscribeSnapshot) { unsubscribeSnapshot(); unsubscribeSnapshot = null; }
+        if (unsubscribeSemanas)   { unsubscribeSemanas();   unsubscribeSemanas = null; }
+        if (unsubscribeLimite)    { unsubscribeLimite();    unsubscribeLimite = null; }
+        await signOut(auth);
+        usuarioAtual = null;
+        isAdmin = false;
+        limiteReservas = null;
+        dadosCelulas = {};
+        estadosSemanas = {};
+        totalSemanasPorSala = {};
+        esconderAvisoProfessor();
+        document.getElementById('tabelas').innerHTML = '';
+        document.getElementById('btnLogin').style.display = 'none';
+        document.getElementById('btnLogout').style.display = 'none';
+        mostrarTelaLogin();
+        atualizarStatus("🔐 Conecte-se com sua conta Google", "offline");
+    } catch (e) {
+        alert("Erro ao sair: " + e.message);
+    }
 };
 
 async function iniciar() {
@@ -468,6 +544,9 @@ async function verificarAcesso(user) {
             } else {
                 atualizarStatus("✅ Conectado — você pode adicionar em células vazias e editar as que criou", "online");
             }
+
+            // 🆕 Mostra banner informativo no rodapé (professor apenas)
+            atualizarAvisoProfessor();
 
             const configSnap = await getDocs(collection(db, "config"));
             configSnap.forEach(doc => {
@@ -506,18 +585,26 @@ async function verificarAcesso(user) {
 
             ouvirMudancas();
 
+            // 🆕 Listener do limite em tempo real (só para professor)
+            if (!isAdmin) ouvirLimiteUsuario(user.email);
+
             // 🆕 Mostra contador de limite no status (professor com limite)
             atualizarStatusLimite();
+
+            // 🆕 Reforça o banner (caso o total de semanas tenha mudado)
+            atualizarAvisoProfessor();
 
         } else {
             console.warn("E-mail não autorizado:", user.email);
             atualizarStatus("❌ Seu e-mail não está autorizado. Escolha outra conta.", "offline");
+            esconderAvisoProfessor();
             await signOut(auth);
             mostrarTelaLogin();
         }
     } catch (erro) {
         console.error("Erro ao verificar acesso:", erro);
         atualizarStatus("❌ Erro ao verificar acesso. Escolha uma conta.", "offline");
+        esconderAvisoProfessor();
         try { await signOut(auth); } catch (e) {}
         mostrarTelaLogin();
     }
@@ -536,6 +623,7 @@ function mostrarTelaLogin() {
     `;
     document.getElementById('btnLogin').style.display = 'none';
     document.getElementById('btnLogout').style.display = 'none';
+    esconderAvisoProfessor();   // 🆕 garante que o banner suma na tela de login
 }
 
 window.abrirPainelAdmin = async function() {
@@ -826,6 +914,8 @@ async function adicionarSemana(salaId) {
             document.querySelectorAll('.btn-adicionar-semana').forEach(b => b.style.display = 'inline-block');
         }
         aplicarDados(dadosCelulas);
+        // 🆕 Reforça o banner (mudou o total de semanas)
+        atualizarAvisoProfessor();
     } catch (e) { console.error(e); alert("Erro ao adicionar semana."); }
 }
 
@@ -925,6 +1015,8 @@ async function apagarSemana(salaId, bloco, totalAtual) {
         }
 
         aplicarDados(dadosCelulas);
+        // 🆕 Reforça o banner (mudou o total de semanas)
+        atualizarAvisoProfessor();
 
     } catch (e) {
         // A MÁGICA ACONTECE AQUI: se qualquer coisa der erro (cota estourada, sem internet),
