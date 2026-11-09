@@ -96,12 +96,23 @@ function podeCriarReservaNoBloco(bloco) {
 }
 
 // Monta o texto de status com o uso por semana (apenas professor com limite).
+// Usa o maior total real entre as 3 salas do turno (já em memória) —
+// evita mostrar "Sem 3" / "Sem 4" quando a sala só tem 1 ou 2 semanas.
 function textoStatusComLimite() {
     if (isAdmin || limiteReservas === null) return null;
     const contagem = contarReservasPorBloco();
-    const totalBlocos = 4;
+
+    // Descobre o maior total configurado entre as salas deste turno.
+    // totalSemanasPorSala já está em memória (carregado no login) — 0 leituras.
+    let maxBlocos = 0;
+    SALAS.forEach(s => {
+        const chave = `${TURNO}_${s.id}`;
+        const t = totalSemanasPorSala[chave] || MAX_SEMANAS;
+        if (t > maxBlocos) maxBlocos = t;
+    });
+
     const partes = [];
-    for (let b = 0; b < totalBlocos; b++) {
+    for (let b = 0; b < maxBlocos; b++) {
         const usadas = contagem[b] || 0;
         partes.push(`Sem ${b + 1}: ${usadas}/${limiteReservas}`);
     }
