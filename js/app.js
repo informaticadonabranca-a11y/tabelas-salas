@@ -43,14 +43,14 @@ let isAdmin = false;
 let estadosSemanas = {};
 let totalSemanasPorSala = {};
 
-// 🆕 Limite de reservas do usuário logado (null = sem limite / admin)
+// Limite de reservas do usuário logado (null = sem limite / admin)
 // Lido junto do getDoc(allowlist) no login — 0 leituras extras.
 let limiteReservas = null;
 
-// 🆕 CACHE LOCAL — guarda o último estado recebido pelo onSnapshot de células.
+// CACHE LOCAL — guarda o último estado recebido pelo onSnapshot de células.
 let dadosCelulas = {};
 
-// 🆕 Helper — retorna os IDs de dadosCelulas que começam com um prefixo.
+// Helper — retorna os IDs de dadosCelulas que começam com um prefixo.
 function idsComPrefixo(prefixo) {
     return Object.keys(dadosCelulas).filter(id => id.startsWith(prefixo));
 }
@@ -62,7 +62,7 @@ function atualizarStatus(texto, tipo) {
 }
 
 // ============================================================
-// 🆕 CONTROLE DE LIMITE DE RESERVAS
+// CONTROLE DE LIMITE DE RESERVAS
 // Regra: limite por (turno + bloco/semana), independente entre turnos.
 // Contagem 100% em memória (dadosCelulas) — 0 leituras.
 // ============================================================
@@ -102,8 +102,6 @@ function textoStatusComLimite() {
     if (isAdmin || limiteReservas === null) return null;
     const contagem = contarReservasPorBloco();
 
-    // Descobre o maior total configurado entre as salas deste turno.
-    // totalSemanasPorSala já está em memória (carregado no login) — 0 leituras.
     let maxBlocos = 0;
     SALAS.forEach(s => {
         const chave = `${TURNO}_${s.id}`;
@@ -127,7 +125,7 @@ function atualizarStatusLimite() {
 }
 
 // ============================================================
-// 🆕 BANNER INFORMATIVO DO PROFESSOR (rodapé fixo)
+// BANNER INFORMATIVO DO PROFESSOR (rodapé fixo)
 // Mostra o limite real do professor logado — 100% em memória.
 // ============================================================
 function atualizarAvisoProfessor() {
@@ -135,14 +133,12 @@ function atualizarAvisoProfessor() {
     const texto  = document.getElementById('aviso-professor-texto');
     if (!banner || !texto) return;
 
-    // Admin não vê o banner
     if (isAdmin || !usuarioAtual) {
         banner.style.display = 'none';
         document.body.classList.remove('tem-aviso-professor');
         return;
     }
 
-    // Monta o texto com o limite real
     let fraseLimite;
     if (limiteReservas === null) {
         fraseLimite = 'você tem <strong>reservas ilimitadas</strong> neste turno';
@@ -213,6 +209,7 @@ function gerarTabelas() {
                     <span style="float:left; font-weight:bold; color:#333;">📅 Semana ${b + 1} - ${sala.nome}</span>
                     <button class="btn-toggle-semana" data-bloco="${b}" data-sala="${sala.id}" style="display:none; padding:4px 10px; background:#2e7d32; color:white; border:none; border-radius:4px; cursor:pointer; font-size:12px; font-weight:bold; margin-right:6px;">🔓 Liberada</button>
                     <button class="btn-limpar-semana" data-bloco="${b}" data-sala="${sala.id}" style="display:none; padding:4px 10px; background:#f57c00; color:white; border:none; border-radius:4px; cursor:pointer; font-size:12px; font-weight:bold; margin-right:6px;">🧹 Limpar</button>
+                    <button class="btn-apagar-semana" data-bloco="${b}" data-sala="${sala.id}" style="display:none; padding:4px 10px; background:#c62828; color:white; border:none; border-radius:4px; cursor:pointer; font-size:12px; font-weight:bold;">🗑️ Apagar</button>
                 </td>`;
             tbody.appendChild(trTitulo);
 
@@ -267,15 +264,6 @@ function gerarTabelas() {
         btnAdd.style.cssText = `display:none; margin-top:15px; padding:10px 20px; background:${corBotao}; color:white; border:none; border-radius:5px; cursor:pointer; font-weight:bold; font-size:13px; width:100%;`;
         btnAdd.onclick = () => adicionarSemana(sala.id);
         div.appendChild(btnAdd);
-
-        // 🆕 Botão Apagar Semana (admin)
-        const btnApagar = document.createElement('button');
-        btnApagar.className = 'btn-apagar-semana';
-        btnApagar.dataset.sala = sala.id;
-        btnApagar.textContent = '🗑️ Apagar Semana';
-        btnApagar.style.cssText = 'display:none; margin-top:8px; padding:10px 20px; background:#c62828; color:white; border:none; border-radius:5px; cursor:pointer; font-weight:bold; font-size:13px; width:100%;';
-        btnApagar.onclick = () => apagarSemana(sala.id);
-        div.appendChild(btnApagar);
 
         container.appendChild(div);
     });
@@ -356,12 +344,12 @@ async function salvarCelula(celula) {
     const sala = match[2];
     const bloco = parseInt(match[3]);
 
-    // 🆕 Detecção de CRIAÇÃO (célula estava vazia no cache e agora tem conteúdo)
+    // Detecção de CRIAÇÃO (célula estava vazia no cache e agora tem conteúdo)
     // Usa o cache em memória — 0 leituras.
     const jaExistia = !!dadosCelulas[id];
     const ehCriacao = !jaExistia && conteudo !== '';
 
-    // 🆕 Bloqueia criação se o limite semanal do bloco foi atingido
+    // Bloqueia criação se o limite semanal do bloco foi atingido
     if (ehCriacao && !podeCriarReservaNoBloco(bloco)) {
         const usadas = (contarReservasPorBloco()[bloco] || 0);
         alert(
@@ -421,6 +409,15 @@ function configurarEdicao() {
             toggleSemana(sala, bloco);
         };
     });
+
+    // 🆕 Handler do botão Apagar Semana (por bloco)
+    document.querySelectorAll('.btn-apagar-semana').forEach(btn => {
+        btn.onclick = () => {
+            const bloco = parseInt(btn.dataset.bloco);
+            const sala = btn.dataset.sala;
+            apagarSemana(sala, bloco);
+        };
+    });
 }
 
 let unsubscribeSnapshot = null;
@@ -436,7 +433,6 @@ function ouvirMudancas() {
         dadosCelulas = {};
         snapshot.forEach(doc => { dadosCelulas[doc.id] = doc.data(); });
         aplicarDados(dadosCelulas);
-        // 🆕 Atualiza contador de limite no status (0 leituras — só memória)
         atualizarStatusLimite();
     },
     (erro) => {
@@ -461,14 +457,12 @@ function ouvirMudancas() {
         });
 
         aplicarDados(dadosCelulas);
-        // 🆕 Recalcula status de limite (0 leituras)
         atualizarStatusLimite();
     });
 }
 
-// 🆕 Listener do limite do próprio professor (tempo real).
+// Listener do limite do próprio professor (tempo real).
 // Se o admin mudar o limite em outra aba, o banner atualiza sozinho.
-// +1 listener — 0 leituras por ação.
 function ouvirLimiteUsuario(email) {
     if (unsubscribeLimite) unsubscribeLimite();
     unsubscribeLimite = onSnapshot(doc(db, "allowlist", email), (snap) => {
@@ -529,7 +523,6 @@ async function verificarAcesso(user) {
             usuarioAtual = user.uid;
             isAdmin = (user.email === EMAIL_ADMIN);
 
-            // 🆕 Lê o limite do MESMO doc da allowlist (já lido acima — 0 leituras extras)
             const dadosAllow = docSnap.data() || {};
             limiteReservas = (typeof dadosAllow.limiteReservas === 'number' && dadosAllow.limiteReservas > 0)
                 ? dadosAllow.limiteReservas
@@ -544,7 +537,6 @@ async function verificarAcesso(user) {
                 atualizarStatus("✅ Conectado — você pode adicionar em células vazias e editar as que criou", "online");
             }
 
-            // 🆕 Mostra banner informativo no rodapé (professor apenas)
             atualizarAvisoProfessor();
 
             const configSnap = await getDocs(collection(db, "config"));
@@ -584,13 +576,9 @@ async function verificarAcesso(user) {
 
             ouvirMudancas();
 
-            // 🆕 Listener do limite em tempo real (só para professor)
             if (!isAdmin) ouvirLimiteUsuario(user.email);
 
-            // 🆕 Mostra contador de limite no status (professor com limite)
             atualizarStatusLimite();
-
-            // 🆕 Reforça o banner (caso o total de semanas tenha mudado)
             atualizarAvisoProfessor();
 
         } else {
@@ -622,7 +610,7 @@ function mostrarTelaLogin() {
     `;
     document.getElementById('btnLogin').style.display = 'none';
     document.getElementById('btnLogout').style.display = 'none';
-    esconderAvisoProfessor();   // 🆕 garante que o banner suma na tela de login
+    esconderAvisoProfessor();
 }
 
 window.abrirPainelAdmin = async function() {
@@ -673,7 +661,7 @@ async function carregarListaEmails() {
     }
 }
 
-// 🆕 Salva o limite de reservas de um e-mail (apenas admin). 0 = sem limite.
+// Salva o limite de reservas de um e-mail (apenas admin). 0 = sem limite.
 window.salvarLimite = async function(email, valor) {
     if (!isAdmin) return;
     const n = parseInt(valor, 10);
@@ -806,7 +794,7 @@ async function limparTabela(salaId) {
             );
             await batch.commit();
         }
-        // ✅ 0 leituras — o onSnapshot(celulas) reflete sozinho
+        // 0 leituras — o onSnapshot(celulas) reflete sozinho
     } catch (e) {
         console.error(e);
         alert("Erro ao limpar tabela. Tente novamente.");
@@ -901,31 +889,28 @@ async function adicionarSemana(salaId) {
         }, { merge: true });
 
         totalSemanasPorSala[chave] = novoTotal;
-        const container = document.getElementById('tabelas');
-        container.innerHTML = '';
-        gerarTabelas();
-        configurarEdicao();
-        if (isAdmin) {
-            document.querySelectorAll('.btn-limpar-tabela').forEach(b => b.style.display = 'inline-block');
-            document.querySelectorAll('.btn-limpar-semana').forEach(b => b.style.display = 'inline-block');
-            document.querySelectorAll('.btn-toggle-semana').forEach(b => b.style.display = 'inline-block');
-            document.querySelectorAll('.btn-adicionar-semana').forEach(b => b.style.display = 'inline-block');
-            document.querySelectorAll('.btn-apagar-semana').forEach(b => b.style.display = 'inline-block');
-        }
-        aplicarDados(dadosCelulas);
-        // 🆕 Reforça o banner (mudou o total de semanas)
+        reconstruirTabela();
         atualizarAvisoProfessor();
     } catch (e) { console.error(e); alert("Erro ao adicionar semana."); }
 }
 
 // ============================================================
-// 🆕 APAGAR SEMANA (somente admin)
-// Remove a ÚLTIMA semana configurada da sala/turno.
-// - 0 leituras: usa dadosCelulas (cache) + totalSemanasPorSala.
-// - Escritas: 1 setDoc em config + 1 delete em semanas + N deletes
-//   em celulas (batch). Nenhum getDocs.
+// APAGAR SEMANA (somente admin) — por bloco, com renumeração
+// Remove a semana escolhida e "puxa" as seguintes para preencher o buraco.
+//
+// Estratégia:
+//   1) Apaga as células da semana escolhida.
+//   2) Para cada semana posterior, MOVE as células para o bloco -1
+//      (delete do ID antigo + setDoc do ID novo, via writeBatch).
+//   3) Atualiza config (total - 1).
+//   4) Remove o doc semanas do último bloco (que deixou de existir).
+//   5) Atualiza cache em memória e reconstrói a UI.
+//
+// ⚠️ Custo de escritas: N_celulas_semana_apagada (delete) +
+//    2 × N_celulas_semanas_posteriores (delete + setDoc).
+//    Leituras: 0 (tudo em memória).
 // ============================================================
-async function apagarSemana(salaId) {
+async function apagarSemana(salaId, blocoAlvo) {
     if (!isAdmin) return;
 
     const chave = `${TURNO}_${salaId}`;
@@ -935,53 +920,97 @@ async function apagarSemana(salaId) {
         alert(`⚠️ Não é possível apagar: a tabela precisa ter pelo menos ${MIN_SEMANAS} semana.`);
         return;
     }
+    if (blocoAlvo < 0 || blocoAlvo >= totalAtual) return;
 
-    const blocoRemover = totalAtual - 1;
     const nomeSala = SALAS.find(s => s.id === salaId)?.nome || salaId;
 
     const ok = confirm(
-        `🗑️ Apagar a Semana ${blocoRemover + 1} de "${nomeSala}"?\n\n` +
-        `• Todas as reservas dessa semana serão apagadas.\n` +
-        `• As semanas anteriores permanecem intactas.\n\n` +
-        `Esta ação NÃO pode ser desfeita.`
+        `🗑️ Apagar a Semana ${blocoAlvo + 1} de "${nomeSala}"?\n\n` +
+        `• As reservas dessa semana serão apagadas.\n` +
+        (blocoAlvo < totalAtual - 1
+            ? `• As semanas seguintes serão renumeradas (Sem ${blocoAlvo + 2} → Sem ${blocoAlvo + 1}, etc.).\n`
+            : `• Nenhuma outra semana é afetada.\n`) +
+        `\nEsta ação NÃO pode ser desfeita.`
     );
     if (!ok) return;
 
-    const prefixoSemana = `${TURNO}_${salaId}_bloco${blocoRemover}_`;
-    const idsCelulas = idsComPrefixo(prefixoSemana); // do cache — 0 leituras
-
     try {
-        // 1) Apaga as células em lotes
         const CHUNK = 400;
-        for (let i = 0; i < idsCelulas.length; i += CHUNK) {
+
+        // 1) Apaga as células da semana alvo
+        const prefixoAlvo = `${TURNO}_${salaId}_bloco${blocoAlvo}_`;
+        const idsAlvo = idsComPrefixo(prefixoAlvo);
+
+        for (let i = 0; i < idsAlvo.length; i += CHUNK) {
             const batch = writeBatch(db);
-            idsCelulas.slice(i, i + CHUNK).forEach(id =>
+            idsAlvo.slice(i, i + CHUNK).forEach(id =>
                 batch.delete(doc(db, "celulas", id))
             );
             await batch.commit();
         }
+        // Limpa do cache local
+        idsAlvo.forEach(id => delete dadosCelulas[id]);
 
-        // 2) Ajusta o total na config
-        const novoTotal = blocoRemover;
+        // 2) Renumera as semanas posteriores (bloco b+1 → b)
+        //    Faz em ordem crescente para que a origem sempre exista.
+        for (let origem = blocoAlvo + 1; origem < totalAtual; origem++) {
+            const destino = origem - 1;
+            const prefixoOrigem = `${TURNO}_${salaId}_bloco${origem}_`;
+            const idsOrigem = idsComPrefixo(prefixoOrigem);
+
+            for (let i = 0; i < idsOrigem.length; i += CHUNK) {
+                const batch = writeBatch(db);
+                idsOrigem.slice(i, i + CHUNK).forEach(idAntigo => {
+                    const dados = dadosCelulas[idAntigo] || {};
+                    const idNovo = idAntigo.replace(
+                        `_bloco${origem}_`,
+                        `_bloco${destino}_`
+                    );
+                    const dadosNovos = { ...dados, bloco: destino };
+                    batch.delete(doc(db, "celulas", idAntigo));
+                    batch.set(doc(db, "celulas", idNovo), dadosNovos);
+                    // Atualiza cache local
+                    delete dadosCelulas[idAntigo];
+                    dadosCelulas[idNovo] = dadosNovos;
+                });
+                await batch.commit();
+            }
+        }
+
+        // 3) Atualiza config (total - 1)
+        const novoTotal = totalAtual - 1;
         await setDoc(
             doc(db, "config", `${chave}_totalSemanas`),
             { total: novoTotal, atualizadoEm: new Date().toISOString() },
             { merge: true }
         );
 
-        // 3) Remove o doc de estado da semana
+        // 4) Remove o doc `semanas` do último bloco (que deixou de existir)
         try {
-            await deleteDoc(doc(db, "semanas", `${TURNO}_${salaId}_bloco${blocoRemover}`));
+            await deleteDoc(doc(db, "semanas", `${TURNO}_${salaId}_bloco${novoTotal}`));
         } catch (e) {
             console.warn("Doc de semana não existia:", e);
         }
 
-        // 4) Atualiza cache local
+        // 5) Atualiza caches de estado e total
         totalSemanasPorSala[chave] = novoTotal;
-        delete estadosSemanas[`${TURNO}_${salaId}_bloco${blocoRemover}`];
-        idsCelulas.forEach(id => delete dadosCelulas[id]);
 
-        // 5) Reconstrói a UI (versão original — reconstrói as 3 salas)
+        // Renumera o cache de estadosSemanas dos blocos posteriores
+        const novoEstadoSemanas = {};
+        for (let b = 0; b < novoTotal; b++) {
+            const semanaIdNovo = `${TURNO}_${salaId}_bloco${b}`;
+            const origem = b < blocoAlvo ? b : b + 1;
+            const semanaIdOrigem = `${TURNO}_${salaId}_bloco${origem}`;
+            if (estadosSemanas[semanaIdOrigem] !== undefined) {
+                novoEstadoSemanas[semanaIdNovo] = estadosSemanas[semanaIdOrigem];
+            }
+        }
+        for (let b = 0; b < totalAtual; b++) {
+            delete estadosSemanas[`${TURNO}_${salaId}_bloco${b}`];
+        }
+        Object.assign(estadosSemanas, novoEstadoSemanas);
+
+        // 6) Reconstrói a UI
         reconstruirTabela();
         atualizarAvisoProfessor();
     } catch (e) {
@@ -991,8 +1020,8 @@ async function apagarSemana(salaId) {
     }
 }
 
-// 🆕 Reconstrói as tabelas e reaplica visibilidade dos botões admin
-// (Versão original — reconstrói todas as 3 salas. Custo: apenas DOM local, 0 leituras.)
+// Reconstrói as tabelas e reaplica visibilidade dos botões admin.
+// Versão simples: reconstrói as 3 salas (custo: apenas DOM local, 0 leituras).
 function reconstruirTabela() {
     const container = document.getElementById('tabelas');
     container.innerHTML = '';
