@@ -919,54 +919,67 @@ async function adicionarSemana(salaId) {
     } catch (e) { console.error(e); alert("Erro ao adicionar semana."); }
 }
 
+let apagandoSemana = false;
+
 async function apagarSemana(salaId, bloco, totalAtual) {
+    if (apagandoSemana) {
+        alert('⚠️ Já existe uma operação de apagar semana em andamento. Aguarde terminar.');
+        return;
+    }
     if (totalAtual <= MIN_SEMANAS) {
         alert(`⚠️ É necessário manter ao menos ${MIN_SEMANAS} semana por tabela.`);
         return;
     }
-
     if (!confirm(
         `⚠️ Apagar a Semana ${bloco + 1} da tabela "${salaId}"?\n\n` +
         `Os dados serão apagados e as semanas seguintes vão subir uma posição.`
     )) return;
 
+    apagandoSemana = true;
     const chave = `${TURNO}_${salaId}`;
 
-    try {
-        // ---------- 1) Calcular tudo em memória (0 leituras) ----------
-        const operacoesSet = []; 
-        const operacoesDel = []; 
+    // Snapshot congelado para não sofrer corrida com o onSnapshot
+    const celulasCongeladas = { ...dadosCelulas };
+    const semanasCongeladas = { ...estadosSemanas };
+    const totalCongelado = totalAtual;
 
-        // Apagar o bloco alvo
-        idsComPrefixo(`${TURNO}_${salaId}_bloco${bloco}_`)
+    try {
+        const CHUNK = 400;
+
+        // Helper local — usa o snapshot congelado, não dadosCelulas global
+        const idsComPrefixoCongelado = (prefixo) =>
+            Object.keys(celulasCongeladas).filter(id => id.startsWith(prefixo));
+
+        // ---------- 1) Calcular operações em memória ----------
+        const operacoesSet = [];
+        const operacoesDel = [];
+
+        // 1a) Bloco alvo: será apagado
+        idsComPrefixoCongelado(`${TURNO}_${salaId}_bloco${bloco}_`)
             .forEach(id => operacoesDel.push(id));
 
-        // Mover blocos seguintes "para cima"
-        for (let i = bloco + 1; i < totalAtual; i++) {
+        // 1b) Blocos seguintes: SET novo ID + DEL ID antigo
+        for (let i = bloco + 1; i < totalCongelado; i++) {
             const prefixoOrigem  = `${TURNO}_${salaId}_bloco${i}_`;
             const prefixoDestino = `${TURNO}_${salaId}_bloco${i - 1}_`;
-            idsComPrefixo(prefixoOrigem).forEach(idAntigo => {
+            idsComPrefixoCongelado(prefixoOrigem).forEach(idAntigo => {
                 const idNovo = idAntigo.replace(prefixoOrigem, prefixoDestino);
-                const dadosNovos = { ...dadosCelulas[idAntigo], bloco: i - 1 };
+                const dadosNovos = { ...celulasCongeladas[idAntigo], bloco: i - 1 };
                 operacoesSet.push({ id: idNovo, dados: dadosNovos });
                 operacoesDel.push(idAntigo);
             });
         }
 
-        const CHUNK = 400;
-
-        // ---------- 2) SETs primeiro (A BLINDAGEM COMEÇA AQUI) ----------
+        // ---------- 2) SETs primeiro (blindagem) ----------
         for (let i = 0; i < operacoesSet.length; i += CHUNK) {
             const batch = writeBatch(db);
             operacoesSet.slice(i, i + CHUNK).forEach(op =>
                 batch.set(doc(db, "celulas", op.id), op.dados)
             );
-            // Se o Firebase bloquear por falta de cota, o 'await' abaixo joga o erro
-            // direto para o bloco 'catch' lá embaixo, impedindo os DELETEs.
-            await batch.commit(); 
+            await batch.commit();
         }
 
-        // ---------- 3) DELs depois (só roda se os SETs acima deram certo) ----------
+        // ---------- 3) DELs depois (só roda se os SETs deram certo) ----------
         for (let i = 0; i < operacoesDel.length; i += CHUNK) {
             const batch = writeBatch(db);
             operacoesDel.slice(i, i + CHUNK).forEach(id =>
@@ -975,12 +988,13 @@ async function apagarSemana(salaId, bloco, totalAtual) {
             await batch.commit();
         }
 
-        // ---------- 4) Mover estados das semanas (0 leituras) ----------
+        // ---------- 4) Mover estados das semanas ----------
+        // ⚠️ NÃO adicione um delete extra no final — o loop já cobre todos os blocos.
         const bSemanas = writeBatch(db);
-        for (let i = bloco + 1; i < totalAtual; i++) {
+        for (let i = bloco + 1; i < totalCongelado; i++) {
             const origem  = `${TURNO}_${salaId}_bloco${i}`;
             const destino = `${TURNO}_${salaId}_bloco${i - 1}`;
-            const liberada = estadosSemanas[origem] !== false;
+            const liberada = semanasCongeladas[origem] !== false;
             bSemanas.set(
                 doc(db, "semanas", destino),
                 { liberada, atualizadoEm: new Date().toISOString(), atualizadoPor: EMAIL_ADMIN },
@@ -988,11 +1002,10 @@ async function apagarSemana(salaId, bloco, totalAtual) {
             );
             bSemanas.delete(doc(db, "semanas", origem));
         }
-        bSemanas.delete(doc(db, "semanas", `${TURNO}_${salaId}_bloco${totalAtual - 1}`));
         await bSemanas.commit();
 
         // ---------- 5) Atualizar config ----------
-        const novoTotal = totalAtual - 1;
+        const novoTotal = totalCongelado - 1;
         await setDoc(doc(db, "config", `${chave}_totalSemanas`), {
             total: novoTotal,
             atualizadoEm: new Date().toISOString()
@@ -1000,7 +1013,7 @@ async function apagarSemana(salaId, bloco, totalAtual) {
 
         totalSemanasPorSala[chave] = novoTotal;
 
-        // ---------- 6) Re-render (só acontece se tudo deu certo) ----------
+        // ---------- 6) Re-render ----------
         const container = document.getElementById('tabelas');
         container.innerHTML = '';
         gerarTabelas();
@@ -1015,15 +1028,14 @@ async function apagarSemana(salaId, bloco, totalAtual) {
         }
 
         aplicarDados(dadosCelulas);
-        // 🆕 Reforça o banner (mudou o total de semanas)
         atualizarAvisoProfessor();
 
     } catch (e) {
-        // A MÁGICA ACONTECE AQUI: se qualquer coisa der erro (cota estourada, sem internet),
-        // o código cai neste bloco e AVISA você, em vez de apagar tudo em cascata.
         console.error("Erro crítico ao apagar semana:", e);
-        alert("🚨 ERRO AO APAGAR: O limite de leituras do Firebase foi atingido ou a conexão caiu.\n\nA operação foi interrompida para evitar perda de dados. Recarregue a página em alguns minutos.");
+        alert("🚨 ERRO AO APAGAR: cota ou conexão. A operação foi interrompida. Recarregue a página em alguns minutos.");
         aplicarDados(dadosCelulas);
+    } finally {
+        apagandoSemana = false;
     }
 }
 
