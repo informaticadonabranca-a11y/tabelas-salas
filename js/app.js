@@ -213,7 +213,6 @@ function gerarTabelas() {
                     <span style="float:left; font-weight:bold; color:#333;">📅 Semana ${b + 1} - ${sala.nome}</span>
                     <button class="btn-toggle-semana" data-bloco="${b}" data-sala="${sala.id}" style="display:none; padding:4px 10px; background:#2e7d32; color:white; border:none; border-radius:4px; cursor:pointer; font-size:12px; font-weight:bold; margin-right:6px;">🔓 Liberada</button>
                     <button class="btn-limpar-semana" data-bloco="${b}" data-sala="${sala.id}" style="display:none; padding:4px 10px; background:#f57c00; color:white; border:none; border-radius:4px; cursor:pointer; font-size:12px; font-weight:bold; margin-right:6px;">🧹 Limpar</button>
-                    <button class="btn-apagar-semana" data-bloco="${b}" data-sala="${sala.id}" data-total="${totalBlocos}" style="display:none; padding:4px 10px; background:#c62828; color:white; border:none; border-radius:4px; cursor:pointer; font-size:12px; font-weight:bold;">🗑️ Apagar</button>
                 </td>`;
             tbody.appendChild(trTitulo);
 
@@ -413,15 +412,6 @@ function configurarEdicao() {
             toggleSemana(sala, bloco);
         };
     });
-
-    document.querySelectorAll('.btn-apagar-semana').forEach(btn => {
-        btn.onclick = () => {
-            const bloco = parseInt(btn.dataset.bloco);
-            const sala = btn.dataset.sala;
-            const total = parseInt(btn.dataset.total);
-            apagarSemana(sala, bloco, total);
-        };
-    });
 }
 
 let unsubscribeSnapshot = null;
@@ -572,7 +562,6 @@ async function verificarAcesso(user) {
                 document.querySelectorAll('.btn-limpar-tabela').forEach(b => b.style.display = 'inline-block');
                 document.querySelectorAll('.btn-limpar-semana').forEach(b => b.style.display = 'inline-block');
                 document.querySelectorAll('.btn-toggle-semana').forEach(b => b.style.display = 'inline-block');
-                document.querySelectorAll('.btn-apagar-semana').forEach(b => b.style.display = 'inline-block');
                 document.querySelectorAll('.btn-adicionar-semana').forEach(b => b.style.display = 'inline-block');
             }
 
@@ -910,133 +899,12 @@ async function adicionarSemana(salaId) {
             document.querySelectorAll('.btn-limpar-tabela').forEach(b => b.style.display = 'inline-block');
             document.querySelectorAll('.btn-limpar-semana').forEach(b => b.style.display = 'inline-block');
             document.querySelectorAll('.btn-toggle-semana').forEach(b => b.style.display = 'inline-block');
-            document.querySelectorAll('.btn-apagar-semana').forEach(b => b.style.display = 'inline-block');
             document.querySelectorAll('.btn-adicionar-semana').forEach(b => b.style.display = 'inline-block');
         }
         aplicarDados(dadosCelulas);
         // 🆕 Reforça o banner (mudou o total de semanas)
         atualizarAvisoProfessor();
     } catch (e) { console.error(e); alert("Erro ao adicionar semana."); }
-}
-
-let apagandoSemana = false;
-
-async function apagarSemana(salaId, bloco, totalAtual) {
-    if (apagandoSemana) {
-        alert('⚠️ Já existe uma operação de apagar semana em andamento. Aguarde terminar.');
-        return;
-    }
-    if (totalAtual <= MIN_SEMANAS) {
-        alert(`⚠️ É necessário manter ao menos ${MIN_SEMANAS} semana por tabela.`);
-        return;
-    }
-    if (!confirm(
-        `⚠️ Apagar a Semana ${bloco + 1} da tabela "${salaId}"?\n\n` +
-        `Os dados serão apagados e as semanas seguintes vão subir uma posição.`
-    )) return;
-
-    apagandoSemana = true;
-    const chave = `${TURNO}_${salaId}`;
-
-    // Snapshot congelado para não sofrer corrida com o onSnapshot
-    const celulasCongeladas = { ...dadosCelulas };
-    const semanasCongeladas = { ...estadosSemanas };
-    const totalCongelado = totalAtual;
-
-    try {
-        const CHUNK = 400;
-
-        // Helper local — usa o snapshot congelado, não dadosCelulas global
-        const idsComPrefixoCongelado = (prefixo) =>
-            Object.keys(celulasCongeladas).filter(id => id.startsWith(prefixo));
-
-        // ---------- 1) Calcular operações em memória ----------
-        const operacoesSet = [];
-        const operacoesDel = [];
-
-        // 1a) Bloco alvo: será apagado
-        idsComPrefixoCongelado(`${TURNO}_${salaId}_bloco${bloco}_`)
-            .forEach(id => operacoesDel.push(id));
-
-        // 1b) Blocos seguintes: SET novo ID + DEL ID antigo
-        for (let i = bloco + 1; i < totalCongelado; i++) {
-            const prefixoOrigem  = `${TURNO}_${salaId}_bloco${i}_`;
-            const prefixoDestino = `${TURNO}_${salaId}_bloco${i - 1}_`;
-            idsComPrefixoCongelado(prefixoOrigem).forEach(idAntigo => {
-                const idNovo = idAntigo.replace(prefixoOrigem, prefixoDestino);
-                const dadosNovos = { ...celulasCongeladas[idAntigo], bloco: i - 1 };
-                operacoesSet.push({ id: idNovo, dados: dadosNovos });
-                operacoesDel.push(idAntigo);
-            });
-        }
-
-        // ---------- 2) SETs primeiro (blindagem) ----------
-        for (let i = 0; i < operacoesSet.length; i += CHUNK) {
-            const batch = writeBatch(db);
-            operacoesSet.slice(i, i + CHUNK).forEach(op =>
-                batch.set(doc(db, "celulas", op.id), op.dados)
-            );
-            await batch.commit();
-        }
-
-        // ---------- 3) DELs depois (só roda se os SETs deram certo) ----------
-        for (let i = 0; i < operacoesDel.length; i += CHUNK) {
-            const batch = writeBatch(db);
-            operacoesDel.slice(i, i + CHUNK).forEach(id =>
-                batch.delete(doc(db, "celulas", id))
-            );
-            await batch.commit();
-        }
-
-        // ---------- 4) Mover estados das semanas ----------
-        // ⚠️ NÃO adicione um delete extra no final — o loop já cobre todos os blocos.
-        const bSemanas = writeBatch(db);
-        for (let i = bloco + 1; i < totalCongelado; i++) {
-            const origem  = `${TURNO}_${salaId}_bloco${i}`;
-            const destino = `${TURNO}_${salaId}_bloco${i - 1}`;
-            const liberada = semanasCongeladas[origem] !== false;
-            bSemanas.set(
-                doc(db, "semanas", destino),
-                { liberada, atualizadoEm: new Date().toISOString(), atualizadoPor: EMAIL_ADMIN },
-                { merge: true }
-            );
-            bSemanas.delete(doc(db, "semanas", origem));
-        }
-        await bSemanas.commit();
-
-        // ---------- 5) Atualizar config ----------
-        const novoTotal = totalCongelado - 1;
-        await setDoc(doc(db, "config", `${chave}_totalSemanas`), {
-            total: novoTotal,
-            atualizadoEm: new Date().toISOString()
-        }, { merge: true });
-
-        totalSemanasPorSala[chave] = novoTotal;
-
-        // ---------- 6) Re-render ----------
-        const container = document.getElementById('tabelas');
-        container.innerHTML = '';
-        gerarTabelas();
-        configurarEdicao();
-
-        if (isAdmin) {
-            document.querySelectorAll('.btn-limpar-tabela').forEach(b => b.style.display = 'inline-block');
-            document.querySelectorAll('.btn-limpar-semana').forEach(b => b.style.display = 'inline-block');
-            document.querySelectorAll('.btn-toggle-semana').forEach(b => b.style.display = 'inline-block');
-            document.querySelectorAll('.btn-apagar-semana').forEach(b => b.style.display = 'inline-block');
-            document.querySelectorAll('.btn-adicionar-semana').forEach(b => b.style.display = 'inline-block');
-        }
-
-        aplicarDados(dadosCelulas);
-        atualizarAvisoProfessor();
-
-    } catch (e) {
-        console.error("Erro crítico ao apagar semana:", e);
-        alert("🚨 ERRO AO APAGAR: cota ou conexão. A operação foi interrompida. Recarregue a página em alguns minutos.");
-        aplicarDados(dadosCelulas);
-    } finally {
-        apagandoSemana = false;
-    }
 }
 
 iniciar();
