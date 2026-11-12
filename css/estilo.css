@@ -419,3 +419,140 @@ body.tem-aviso-professor {
         padding-bottom: 100px;
     }
 }
+
+/* ============================================ */
+/* BOTÃO BAIXAR TABELAS (admin)                 */
+/* ============================================ */
+
+.btn-baixar-tabelas {
+    padding: 10px 20px;
+    background: #1565c0;
+    color: white;
+    border: none;
+    border-radius: 5px;
+    cursor: pointer;
+    font-weight: bold;
+    font-size: 14px;
+}
+.btn-baixar-tabelas:hover { background: #0d47a1; }
+
+/* ============================================ */
+/* CSS DE IMPRESSÃO — usado pelo "Baixar Tabelas" */
+/* Esconde UI e deixa as tabelas limpas         */
+/* ============================================ */
+
+/* Cabeçalho e rodapé do PDF — só aparecem na impressão */
+.cabecalho-impressao,
+.rodape-impressao {
+    display: none;
+}
+
+@media print {
+    /* Esconde TUDO que não é conteúdo das tabelas */
+    .topo,
+    .status,
+    .barra-acoes,
+    #painel-admin,
+    .aviso-professor,
+    .btn-limpar-tabela,
+    .btn-limpar-semana,
+    .btn-toggle-semana,
+    .btn-apagar-semana,
+    .btn-adicionar-semana,
+    .btn-baixar-tabelas { 
+        display: none !important;
+    }
+
+    /* Mostra cabeçalho e rodapé especiais */
+    .cabecalho-impressao,
+    .rodape-impressao {
+        display: block !important;
+    }
+
+    /* Remove fundo cinza do body */
+    body {
+        background: #fff !important;
+        margin: 0 !important;
+        padding: 10mm !important;
+        font-size: 11px;
+    }
+
+    /* Remove sombra e margem extra dos containers */
+    .tabela-container {
+        box-shadow: none !important;
+        margin-bottom: 15mm !important;
+        padding: 0 !important;
+        page-break-inside: avoid;
+        break-inside: avoid;
+    }
+
+    /* Evita quebra de página no meio de uma tabela */
+    table {
+        page-break-inside: auto;
+        break-inside: auto;
+    }
+    tr {
+        page-break-inside: avoid;
+        break-inside: avoid;
+    }
+
+    /* Remove placeholder "clique para escrever" */
+    td[contenteditable="true"]:empty::before {
+        content: "" !important;
+    }
+
+    /* Células vazias ficam brancas no PDF */
+    tr.linha-aula td[contenteditable="true"]:empty {
+        background: #ffffff !important;
+    }
+
+    /* Cabeçalho e rodapé especiais */
+    .cabecalho-impressao {
+        text-align: center;
+        margin-bottom: 8mm;
+        border-bottom: 2px solid #000;
+        padding-bottom: 4mm;
+    }
+    .cabecalho-impressao h1 {
+        margin: 0;
+        font-size: 16px;
+        color: #000;
+    }
+    .rodape-impressao {
+        text-align: center;
+        margin-top: 8mm;
+        padding-top: 4mm;
+        border-top: 1px solid #999;
+        font-size: 10px;
+        color: #555;
+    }
+
+    /* Ajustes de layout das tabelas na impressão */
+    h2 { font-size: 13px; margin-bottom: 4mm; }
+    th, td {
+        font-size: 10px;
+        padding: 3px 4px;
+        height: auto;
+    }
+    .nome-dia { font-size: 10px; }
+    .data-dia { font-size: 9px; }
+
+    /* Garante impressão das cores das salas */
+    * {
+        -webkit-print-color-adjust: exact !important;
+        print-color-adjust: exact !important;
+    }
+}
+
+/* Evita que o nome do dia e a data fiquem muito grandes em telas menores no print */
+@media print and (max-width: 700px) {
+    body { padding: 5mm !important; }
+    .tabela-container {
+        overflow-x: visible !important;
+    }
+    table {
+        min-width: 0 !important;
+        width: 100% !important;
+        font-size: 9px;
+    }
+}
