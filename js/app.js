@@ -565,6 +565,8 @@ async function verificarAcesso(user) {
                 document.querySelectorAll('.btn-toggle-semana').forEach(b => b.style.display = 'inline-block');
                 document.querySelectorAll('.btn-adicionar-semana').forEach(b => b.style.display = 'inline-block');
                 document.querySelectorAll('.btn-apagar-semana').forEach(b => b.style.display = 'inline-block');
+                const btnBaixar = document.querySelector('.btn-baixar-tabelas');
+                if (btnBaixar) btnBaixar.style.display = 'inline-block';
             }
 
             // Carga inicial única — depois disso, quem mantém os dados atualizados
@@ -1038,5 +1040,83 @@ function reconstruirTabela() {
 
     aplicarDados(dadosCelulas);
 }
+
+// ============================================================
+// 🆕 BAIXAR TABELAS EM PDF (somente admin)
+// Usa window.print() — 0 leituras, 0 escritas no Firestore.
+// Abre o diálogo de impressão; o usuário escolhe "Salvar como PDF".
+// Adiciona cabeçalho e rodapé temporários, imprime, e remove depois.
+// ============================================================
+window.baixarTabelasPDF = function() {
+    if (!isAdmin) return;
+
+    // Se não há tabelas geradas, avisa
+    const containerTabelas = document.getElementById('tabelas');
+    if (!containerTabelas || !containerTabelas.children.length) {
+        alert('Nenhuma tabela carregada para exportar.');
+        return;
+    }
+
+    // Verifica se há ao menos 1 reserva no turno
+    const prefixoTurno = `${TURNO}_`;
+    const temReserva = Object.keys(dadosCelulas).some(id =>
+        id.startsWith(prefixoTurno) &&
+        !id.includes('_data_dia') &&
+        dadosCelulas[id] && dadosCelulas[id].conteudo
+    );
+    if (!temReserva) {
+        alert('Nenhuma reserva encontrada neste turno.');
+        return;
+    }
+
+    // Cria cabeçalho e rodapé temporários (só aparecem no print)
+    const cabecalho = document.createElement('div');
+    cabecalho.className = 'cabecalho-impressao';
+    const tituloTurno = (TURNO === 'manha') ? '☀️ Turno Manhã' : '🌙 Turno Tarde';
+    cabecalho.innerHTML = `<h1>${tituloTurno}</h1>`;
+
+    const rodape = document.createElement('div');
+    rodape.className = 'rodape-impressao';
+    const agora = new Date();
+    const dataStr = agora.toLocaleDateString('pt-BR');
+    const horaStr = agora.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' });
+    rodape.textContent = `Gerado em ${dataStr} às ${horaStr}`;
+
+    // Insere no início e no fim de #tabelas (temporário)
+    const tabelas = document.getElementById('tabelas');
+    tabelas.insertBefore(cabecalho, tabelas.firstChild);
+    tabelas.appendChild(rodape);
+
+    // Guarda referências para limpar depois
+    window.__cabecalhoImpressaoTemp = cabecalho;
+    window.__rodapeImpressaoTemp = rodape;
+
+    // Pequeno delay para o navegador renderizar
+    setTimeout(() => {
+        // Garante que o "afterprint" está registrado (fallback)
+        const limpar = () => {
+            const c = window.__cabecalhoImpressaoTemp;
+            const r = window.__rodapeImpressaoTemp;
+            if (c && c.parentNode) c.parentNode.removeChild(c);
+            if (r && r.parentNode) r.parentNode.removeChild(r);
+            window.__cabecalhoImpressaoTemp = null;
+            window.__rodapeImpressaoTemp = null;
+            window.removeEventListener('afterprint', limpar);
+        };
+
+        window.addEventListener('afterprint', limpar);
+
+        try {
+            window.print();
+        } catch (e) {
+            console.error('Erro ao abrir impressão:', e);
+            limpar();
+        }
+
+        // Fallback: alguns navegadores não disparam afterprint corretamente
+        // (ex.: iOS Safari em alguns casos). Limpa depois de 2s.
+        setTimeout(limpar, 2000);
+    }, 100);
+};
 
 iniciar();
